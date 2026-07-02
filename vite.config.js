@@ -4,5 +4,5 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/TVLK_TERA_IMG_CONVERTER-/',
+  base: '/TVLK_TERA_IMG_CONVERTER/',
 })
