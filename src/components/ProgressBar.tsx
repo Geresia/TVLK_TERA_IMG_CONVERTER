@@ -1,4 +1,9 @@
-export default function ProgressBar({ done, total }) {
+interface Props {
+  done: number
+  total: number
+}
+
+export default function ProgressBar({ done, total }: Props) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
   return (

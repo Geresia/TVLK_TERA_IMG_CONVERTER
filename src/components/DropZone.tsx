@@ -1,6 +1,10 @@
 import { useState, useCallback } from 'react'
 
-export default function DropZone({ onFiles }) {
+interface Props {
+  onFiles: (files: FileList | null) => void
+}
+
+export default function DropZone({ onFiles }: Props) {
   const [dragging, setDragging] = useState(false)
 
   const openPicker = useCallback(() => {
@@ -12,7 +16,7 @@ export default function DropZone({ onFiles }) {
     input.click()
   }, [onFiles])
 
-  const onDrop = useCallback((e) => {
+  const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setDragging(false)
     onFiles(e.dataTransfer.files)

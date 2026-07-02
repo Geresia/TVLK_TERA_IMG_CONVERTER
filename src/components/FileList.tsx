@@ -1,18 +1,20 @@
+import type { FileItem as FileItemType } from '../hooks/useFileQueue'
+
 const STATUS = {
   pending:    { icon: '🖼️', color: 'text-slate-400', label: '대기' },
   processing: { icon: '⏳', color: 'text-blue-500',  label: '처리 중...' },
   ok:         { icon: '✅', color: 'text-emerald-500', label: null },
   err:        { icon: '❌', color: 'text-red-500',    label: null },
-}
+} as const
 
-function fmtSize(b) {
+function fmtSize(b: number): string {
   return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : (b / 1024).toFixed(0) + ' KB'
 }
 
-function FileItem({ item }) {
+function FileItem({ item }: { item: FileItemType }) {
   const s = STATUS[item.status]
   const label = s.label
-    ?? (item.status === 'ok'
+    ?? (item.status === 'ok' && item.result
       ? `${item.result.width}×${item.result.height} (${item.result.ratio})`
       : item.error)
 
@@ -26,7 +28,7 @@ function FileItem({ item }) {
   )
 }
 
-export default function FileList({ items }) {
+export default function FileList({ items }: { items: FileItemType[] }) {
   if (items.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-slate-400 bg-white rounded-xl border border-slate-200">
