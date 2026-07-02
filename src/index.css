@@ -1,15 +1,1 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #f5f6fa;
-  color: #2d3436;
-  height: 100vh;
-  overflow: hidden;
-}
-
-#root {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
+@import "tailwindcss";
