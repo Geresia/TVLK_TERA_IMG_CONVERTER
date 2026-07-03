@@ -2,7 +2,9 @@ import { useState, useRef } from 'react'
 import DropZone from './components/DropZone'
 import FileList from './components/FileList'
 import ProgressBar from './components/ProgressBar'
+import PreviewModal from './components/PreviewModal'
 import { useFileQueue } from './hooks/useFileQueue'
+import type { FileItem } from './hooks/useFileQueue'
 import { processImage, saveToDir, downloadBlob } from './lib/imageProcessor'
 import { loadModel, isModelLoaded } from './lib/upscaler'
 
@@ -16,24 +18,19 @@ export default function App() {
   const [upscale, setUpscale] = useState(false)
   const [modelState, setModelState] = useState<ModelState>('idle')
   const [modelPct, setModelPct] = useState(0)
+  const [previewItem, setPreviewItem] = useState<FileItem | null>(null)
   const isProcessing = useRef(false)
 
   const toggleUpscale = async () => {
-    if (upscale) {
-      setUpscale(false)
-      return
-    }
-    if (isModelLoaded()) {
-      setUpscale(true)
-      return
-    }
+    if (upscale) { setUpscale(false); return }
+    if (isModelLoaded()) { setUpscale(true); return }
     setModelState('loading')
     setModelPct(0)
     try {
       await loadModel(p => setModelPct(p))
       setModelState('ready')
       setUpscale(true)
-    } catch (e: any) {
+    } catch {
       setModelState('error')
     }
   }
@@ -68,7 +65,10 @@ export default function App() {
       try {
         const result = await processImage(item.file, upscale)
         await onResult(result.blob, result.baseName + '.jpg')
-        updateItem(item.id, { status: 'ok', result: { width: result.width, height: result.height, ratio: result.ratio } })
+        updateItem(item.id, {
+          status: 'ok',
+          result: { width: result.width, height: result.height, ratio: result.ratio, blob: result.blob },
+        })
       } catch (e: any) {
         updateItem(item.id, { status: 'err', error: e.message?.slice(0, 40) ?? 'Error' })
       }
@@ -137,27 +137,22 @@ export default function App() {
               : busy
                 ? `Converting... (${progress.done}/${progress.total})`
                 : doneCount + errCount > 0
-                  ? `Done ${doneCount}${errCount ? ` · Failed ${errCount}` : ''}`
+                  ? `Done ${doneCount}${errCount ? ` · Failed ${errCount}` : ''}  ·  click a file to preview`
                   : `${items.length} files · ${pendingItems.length} pending`
             }
           </span>
 
-          {/* 2x Upscale toggle */}
           <button
             onClick={toggleUpscale}
             disabled={busy}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed
-              ${upscale
-                ? 'bg-violet-500 text-white hover:bg-violet-600'
-                : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-              }`}
+              ${upscale ? 'bg-violet-500 text-white hover:bg-violet-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
           >
             {modelState === 'loading'
               ? `Loading ${Math.round(modelPct * 100)}%`
               : modelState === 'error'
                 ? '⚠ Model Error'
-                : `✦ 2x Upscale${upscale ? ' ON' : ''}`
-            }
+                : `✦ 2x Upscale${upscale ? ' ON' : ''}`}
           </button>
 
           <button
@@ -187,8 +182,12 @@ export default function App() {
 
         {progress && <ProgressBar done={progress.done} total={progress.total} />}
 
-        <FileList items={items} />
+        <FileList items={items} onPreview={setPreviewItem} />
       </main>
+
+      {previewItem && (
+        <PreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+      )}
     </div>
   )
 }

@@ -5,13 +5,20 @@ const ACCEPTED_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'])
 
 export type FileStatus = 'pending' | 'processing' | 'ok' | 'err'
 
+export interface FileResult {
+  width: number
+  height: number
+  ratio: '1:1' | '3:2' | '16:9'
+  blob: Blob
+}
+
 export interface FileItem {
   id: string
   file: File
   name: string
   size: number
   status: FileStatus
-  result: Omit<ProcessResult, 'blob' | 'baseName'> | null
+  result: FileResult | null
   error: string | null
 }
 
