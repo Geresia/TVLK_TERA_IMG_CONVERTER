@@ -51,10 +51,7 @@ export default function App() {
     <div className="flex flex-col h-screen bg-slate-100">
       {/* Header */}
       <header className="flex items-center gap-3 px-5 py-3.5 bg-blue-500 text-white shadow">
-        <h1 className="text-sm font-semibold tracking-wide">🖼️ TERA Image Converter</h1>
-        <span className="ml-auto text-xs opacity-80">
-          비율: 1:1 / 3:2 / 16:9 center-crop &nbsp;·&nbsp; 크기: 800×600 ~ 4096×4096 &nbsp;·&nbsp; JPEG 0.92
-        </span>
+        <h1 className="text-sm font-semibold tracking-wide">TERA Image Converter</h1>
       </header>
 
       {/* Body */}
