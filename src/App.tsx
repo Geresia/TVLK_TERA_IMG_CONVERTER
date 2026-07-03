@@ -33,7 +33,7 @@ export default function App() {
         const result = await processImage(item.file, outDir)
         updateItem(item.id, { status: 'ok', result })
       } catch (e) {
-        updateItem(item.id, { status: 'err', error: e.message?.slice(0, 40) ?? '오류' })
+        updateItem(item.id, { status: 'err', error: e.message?.slice(0, 40) ?? 'Error' })
       }
       done++
       setProgress({ done, total: pendingItems.length })
@@ -63,12 +63,12 @@ export default function App() {
         <div className="flex items-center gap-2">
           <span className="flex-1 text-xs text-slate-500">
             {items.length === 0
-              ? '파일을 추가하세요'
+              ? 'Add images to get started'
               : busy
-                ? `변환 중... (${progress.done}/${progress.total})`
+                ? `Converting... (${progress.done}/${progress.total})`
                 : doneCount + errCount > 0
-                  ? `완료 ${doneCount}개${errCount ? ` · 실패 ${errCount}개` : ''}`
-                  : `${items.length}개 파일 · 대기 ${pendingItems.length}개`
+                  ? `Done ${doneCount}${errCount ? ` · Failed ${errCount}` : ''}`
+                  : `${items.length} files · ${pendingItems.length} pending`
             }
           </span>
 
@@ -77,7 +77,7 @@ export default function App() {
             disabled={busy || items.length === 0}
             className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            초기화
+            Clear
           </button>
 
           <button
@@ -85,7 +85,7 @@ export default function App() {
             disabled={busy}
             className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            📁 {outDir ? outDir.name : '출력 폴더 선택'}
+            📁 {outDir ? outDir.name : 'Select Output Folder'}
           </button>
 
           <button
@@ -93,7 +93,7 @@ export default function App() {
             disabled={busy || pendingItems.length === 0 || !outDir}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {busy ? '변환 중...' : '▶ 변환 시작'}
+            {busy ? 'Converting...' : '▶ Convert'}
           </button>
         </div>
 

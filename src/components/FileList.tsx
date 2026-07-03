@@ -1,8 +1,8 @@
 import type { FileItem as FileItemType } from '../hooks/useFileQueue'
 
 const STATUS = {
-  pending:    { icon: '🖼️', color: 'text-slate-400', label: '대기' },
-  processing: { icon: '⏳', color: 'text-blue-500',  label: '처리 중...' },
+  pending:    { icon: '🖼️', color: 'text-slate-400', label: 'Pending' },
+  processing: { icon: '⏳', color: 'text-blue-500',  label: 'Processing...' },
   ok:         { icon: '✅', color: 'text-emerald-500', label: null },
   err:        { icon: '❌', color: 'text-red-500',    label: null },
 } as const
@@ -32,7 +32,7 @@ export default function FileList({ items }: { items: FileItemType[] }) {
   if (items.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-slate-400 bg-white rounded-xl border border-slate-200">
-        이미지를 드래그하거나 클릭해서 추가하세요
+        Drag or click to add images
       </div>
     )
   }

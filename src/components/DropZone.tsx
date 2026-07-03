@@ -40,10 +40,10 @@ export default function DropZone({ onFiles }: Props) {
     >
       <span className="text-4xl">📂</span>
       <p className="text-sm text-slate-600">
-        <span className="font-semibold text-blue-500">클릭</span>하거나 이미지를{' '}
-        <span className="font-semibold text-blue-500">드래그</span>하세요
+        <span className="font-semibold text-blue-500">Click</span> or{' '}
+        <span className="font-semibold text-blue-500">drag</span> images here
       </p>
-      <p className="text-xs text-slate-400">JPG · PNG · WEBP · BMP · GIF · 여러 장 한 번에 가능</p>
+      <p className="text-xs text-slate-400">JPG · PNG · WEBP · BMP · GIF · Multiple files supported</p>
     </div>
   )
 }
