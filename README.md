@@ -13,7 +13,7 @@ Automatically crops and resizes images to match TERA's specifications.
 - Drag & drop or click to add images
 - **Auto center-crop** to the nearest TERA-compliant ratio
   - Ratios: `1:1` / `3:2` / `16:9`
-  - Size range: `800×600` min — `4096×4096` max
+  - Size range: `800×600` min - `4096×4096` max
   - Width ≤ 1280px is automatically upscaled to 1281px
 - Saves as JPEG at 0.92 quality
 - **Batch processing** support
