@@ -2,7 +2,7 @@
 
 Automatically crops and resizes images to match TERA's specifications.
 
-**→ [https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)**
+**-> [https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)**
 
 ![Preview](docs/preview.svg)
 
