@@ -40,6 +40,24 @@ export function useFileQueue() {
     })
   }, [])
 
+  const addFileArray = useCallback((files: File[]) => {
+    setItems(prev => {
+      const existingKeys = new Set(prev.map(f => f.name + f.size))
+      const newItems = files
+        .filter(f => !existingKeys.has(f.name + f.size))
+        .map<FileItem>(f => ({
+          id: crypto.randomUUID(),
+          file: f,
+          name: f.name,
+          size: f.size,
+          status: 'pending',
+          result: null,
+          error: null,
+        }))
+      return [...prev, ...newItems]
+    })
+  }, [])
+
   const clearAll = useCallback(() => setItems([]), [])
 
   const updateItem = useCallback((id: string, patch: Partial<FileItem>) => {
@@ -48,5 +66,5 @@ export function useFileQueue() {
 
   const pendingItems = items.filter(f => f.status === 'pending')
 
-  return { items, pendingItems, addFiles, clearAll, updateItem }
+  return { items, pendingItems, addFiles, addFileArray, clearAll, updateItem }
 }
