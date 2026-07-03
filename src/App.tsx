@@ -3,25 +3,15 @@ import DropZone from './components/DropZone'
 import FileList from './components/FileList'
 import ProgressBar from './components/ProgressBar'
 import { useFileQueue } from './hooks/useFileQueue'
-import { processImage } from './lib/imageProcessor'
+import { processImage, saveToDir, downloadBlob } from './lib/imageProcessor'
 
 export default function App() {
   const { items, pendingItems, addFiles, clearAll, updateItem } = useFileQueue()
-  const [outDir, setOutDir] = useState(null)
-  const [progress, setProgress] = useState(null)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const isProcessing = useRef(false)
 
-  const pickFolder = async () => {
-    try {
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
-      setOutDir(handle)
-    } catch (e) {
-      if (e.name !== 'AbortError') console.error(e)
-    }
-  }
-
-  const handleProcess = async () => {
-    if (!outDir || isProcessing.current || pendingItems.length === 0) return
+  const run = async (onResult: (blob: Blob, fileName: string) => Promise<void> | void) => {
+    if (isProcessing.current || pendingItems.length === 0) return
     isProcessing.current = true
 
     let done = 0
@@ -30,9 +20,10 @@ export default function App() {
     for (const item of pendingItems) {
       updateItem(item.id, { status: 'processing' })
       try {
-        const result = await processImage(item.file, outDir)
-        updateItem(item.id, { status: 'ok', result })
-      } catch (e) {
+        const result = await processImage(item.file)
+        await onResult(result.blob, result.baseName + '.jpg')
+        updateItem(item.id, { status: 'ok', result: { width: result.width, height: result.height, ratio: result.ratio } })
+      } catch (e: any) {
         updateItem(item.id, { status: 'err', error: e.message?.slice(0, 40) ?? 'Error' })
       }
       done++
@@ -43,23 +34,33 @@ export default function App() {
     setProgress(null)
   }
 
+  const handleSave = () => run((blob, fileName) => downloadBlob(blob, fileName))
+
+  const handleSaveAs = async () => {
+    let dirHandle: FileSystemDirectoryHandle
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' })
+    } catch (e: any) {
+      if (e.name !== 'AbortError') console.error(e)
+      return
+    }
+    run((blob, fileName) => saveToDir(blob, fileName, dirHandle))
+  }
+
   const doneCount = items.filter(f => f.status === 'ok').length
   const errCount  = items.filter(f => f.status === 'err').length
   const busy = !!progress
 
   return (
     <div className="flex flex-col h-screen bg-slate-100">
-      {/* Header */}
       <header className="flex items-center gap-3 px-5 py-3.5 bg-blue-500 text-white shadow">
         <h1 className="text-sm font-semibold tracking-wide">TERA Image Converter</h1>
       </header>
 
-      {/* Body */}
       <main className="flex flex-col flex-1 gap-3 p-4 overflow-hidden max-w-4xl w-full mx-auto">
 
         <DropZone onFiles={addFiles} />
 
-        {/* Toolbar */}
         <div className="flex items-center gap-2">
           <span className="flex-1 text-xs text-slate-500">
             {items.length === 0
@@ -81,23 +82,22 @@ export default function App() {
           </button>
 
           <button
-            onClick={pickFolder}
-            disabled={busy}
+            onClick={handleSaveAs}
+            disabled={busy || pendingItems.length === 0}
             className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            📁 {outDir ? outDir.name : 'Select Output Folder'}
+            Save As
           </button>
 
           <button
-            onClick={handleProcess}
-            disabled={busy || pendingItems.length === 0 || !outDir}
+            onClick={handleSave}
+            disabled={busy || pendingItems.length === 0}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {busy ? 'Converting...' : '▶ Convert'}
+            {busy ? 'Converting...' : '▶ Save'}
           </button>
         </div>
 
-        {/* Progress */}
         {progress && <ProgressBar done={progress.done} total={progress.total} />}
 
         <FileList items={items} />

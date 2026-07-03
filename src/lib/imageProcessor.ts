@@ -4,12 +4,11 @@ export interface ProcessResult {
   width: number
   height: number
   ratio: '1:1' | '3:2' | '16:9'
+  blob: Blob
+  baseName: string
 }
 
-export async function processImage(
-  file: File,
-  outDirHandle: FileSystemDirectoryHandle,
-): Promise<ProcessResult> {
+export async function processImage(file: File): Promise<ProcessResult> {
   const url = URL.createObjectURL(file)
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
@@ -65,11 +64,21 @@ export async function processImage(
   )
 
   const baseName = file.name.replace(/\.[^.]+$/, '')
-  const fileHandle = await outDirHandle.getFileHandle(baseName + '.jpg', { create: true })
+  const ratio = tgtRatio === 1 ? '1:1' : tgtRatio === 1.5 ? '3:2' : '16:9'
+  return { width: cw, height: ch, ratio, blob, baseName }
+}
+
+export async function saveToDir(blob: Blob, fileName: string, dirHandle: FileSystemDirectoryHandle) {
+  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true })
   const writable = await fileHandle.createWritable()
   await writable.write(blob)
   await writable.close()
+}
 
-  const ratio = tgtRatio === 1 ? '1:1' : tgtRatio === 1.5 ? '3:2' : '16:9'
-  return { width: cw, height: ch, ratio }
+export function downloadBlob(blob: Blob, fileName: string) {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = fileName
+  a.click()
+  URL.revokeObjectURL(a.href)
 }

@@ -11,7 +11,7 @@ export interface FileItem {
   name: string
   size: number
   status: FileStatus
-  result: ProcessResult | null
+  result: Omit<ProcessResult, 'blob' | 'baseName'> | null
   error: string | null
 }
 
