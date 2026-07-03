@@ -4,32 +4,52 @@ import FileList from './components/FileList'
 import ProgressBar from './components/ProgressBar'
 import { useFileQueue } from './hooks/useFileQueue'
 import { processImage, saveToDir, downloadBlob } from './lib/imageProcessor'
+import { loadModel, isModelLoaded } from './lib/upscaler'
+
+type ModelState = 'idle' | 'loading' | 'ready' | 'error'
 
 export default function App() {
   const { items, pendingItems, addFiles, addFileArray, clearAll, updateItem } = useFileQueue()
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [urlInput, setUrlInput] = useState('')
   const [urlError, setUrlError] = useState('')
+  const [upscale, setUpscale] = useState(false)
+  const [modelState, setModelState] = useState<ModelState>('idle')
+  const [modelPct, setModelPct] = useState(0)
   const isProcessing = useRef(false)
+
+  const toggleUpscale = async () => {
+    if (upscale) {
+      setUpscale(false)
+      return
+    }
+    if (isModelLoaded()) {
+      setUpscale(true)
+      return
+    }
+    setModelState('loading')
+    setModelPct(0)
+    try {
+      await loadModel(p => setModelPct(p))
+      setModelState('ready')
+      setUpscale(true)
+    } catch (e: any) {
+      setModelState('error')
+    }
+  }
 
   const fetchFromUrl = async () => {
     const raw = urlInput.trim()
     if (!raw) return
     setUrlError('')
-    try {
-      new URL(raw)
-    } catch {
-      setUrlError('Invalid URL')
-      return
-    }
+    try { new URL(raw) } catch { setUrlError('Invalid URL'); return }
     try {
       const res = await fetch(raw)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const blob = await res.blob()
       if (!blob.type.startsWith('image/')) throw new Error('Not an image')
       const fileName = raw.split('/').pop()?.split('?')[0] || 'image.jpg'
-      const file = new File([blob], fileName, { type: blob.type })
-      addFileArray([file])
+      addFileArray([new File([blob], fileName, { type: blob.type })])
       setUrlInput('')
     } catch (e: any) {
       setUrlError(e.message ?? 'Failed to fetch')
@@ -46,7 +66,7 @@ export default function App() {
     for (const item of pendingItems) {
       updateItem(item.id, { status: 'processing' })
       try {
-        const result = await processImage(item.file)
+        const result = await processImage(item.file, upscale)
         await onResult(result.blob, result.baseName + '.jpg')
         updateItem(item.id, { status: 'ok', result: { width: result.width, height: result.height, ratio: result.ratio } })
       } catch (e: any) {
@@ -121,6 +141,24 @@ export default function App() {
                   : `${items.length} files · ${pendingItems.length} pending`
             }
           </span>
+
+          {/* 2x Upscale toggle */}
+          <button
+            onClick={toggleUpscale}
+            disabled={busy}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed
+              ${upscale
+                ? 'bg-violet-500 text-white hover:bg-violet-600'
+                : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+              }`}
+          >
+            {modelState === 'loading'
+              ? `Loading ${Math.round(modelPct * 100)}%`
+              : modelState === 'error'
+                ? '⚠ Model Error'
+                : `✦ 2x Upscale${upscale ? ' ON' : ''}`
+            }
+          </button>
 
           <button
             onClick={clearAll}

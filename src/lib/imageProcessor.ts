@@ -1,3 +1,5 @@
+import { upscaleCanvas } from './upscaler'
+
 const RATIOS = [1, 1.5, 1.7778] as const
 
 export interface ProcessResult {
@@ -8,7 +10,7 @@ export interface ProcessResult {
   baseName: string
 }
 
-export async function processImage(file: File): Promise<ProcessResult> {
+export async function processImage(file: File, upscale = false): Promise<ProcessResult> {
   const url = URL.createObjectURL(file)
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
@@ -18,8 +20,20 @@ export async function processImage(file: File): Promise<ProcessResult> {
   })
   URL.revokeObjectURL(url)
 
-  const sw = img.naturalWidth
-  const sh = img.naturalHeight
+  let sw = img.naturalWidth
+  let sh = img.naturalHeight
+
+  // Draw source to canvas, upscale if requested
+  let sourceCanvas = document.createElement('canvas')
+  sourceCanvas.width = sw
+  sourceCanvas.height = sh
+  sourceCanvas.getContext('2d')!.drawImage(img, 0, 0)
+
+  if (upscale) {
+    sourceCanvas = await upscaleCanvas(sourceCanvas)
+    sw = sourceCanvas.width
+    sh = sourceCanvas.height
+  }
   const curRatio = sw / sh
 
   const tgtRatio = RATIOS.reduce((a, b) =>
@@ -57,7 +71,7 @@ export async function processImage(file: File): Promise<ProcessResult> {
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
+  ctx.drawImage(sourceCanvas, sx, sy, cropW, cropH, 0, 0, cw, ch)
 
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.92),
