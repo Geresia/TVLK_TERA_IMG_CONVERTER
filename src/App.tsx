@@ -94,7 +94,7 @@ export default function App() {
             disabled={busy || pendingItems.length === 0}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {busy ? 'Converting...' : '▶ Save'}
+            {busy ? 'Converting...' : 'Save'}
           </button>
         </div>
 
