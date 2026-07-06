@@ -1,140 +1,92 @@
-// onnxruntime-web is loaded from CDN via index.html script tag
-declare const ort: {
-  InferenceSession: {
-    create(buffer: ArrayBuffer, options: { executionProviders: string[] }): Promise<{
-      inputNames: string[]
-      outputNames: string[]
-      run(feeds: Record<string, OrtTensor>): Promise<Record<string, OrtTensor>>
-    }>
-  }
-  Tensor: new (type: string, data: Float32Array, shape: number[]) => OrtTensor
+// ONNX inference runs in a Web Worker — main thread stays responsive during upscaling
+
+type InMsg =
+  | { type: 'progress'; pct: number }
+  | { type: 'loaded' }
+  | { type: 'upscaled'; rgba: ArrayBuffer; width: number; height: number }
+  | { type: 'error'; message: string }
+
+type PendingLoad = {
+  resolve: () => void
+  reject: (e: Error) => void
+  progress?: (pct: number) => void
 }
 
-interface OrtTensor {
-  data: Float32Array
+type PendingUpscale = {
+  resolve: (c: HTMLCanvasElement) => void
+  reject: (e: Error) => void
 }
 
-declare global {
-  interface Window { _ortReady: Promise<typeof ort> }
-}
-
-// SwinIR-M x4 GAN — browser-verified ONNX, dynamic input size, NCHW float32
-const MODEL_URL = 'https://huggingface.co/rocca/swin-ir-onnx/resolve/main/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.onnx'
-const TILE = 128
-
-let session: Awaited<ReturnType<typeof ort.InferenceSession.create>> | null = null
+let worker: Worker | null = null
+let workerReady = false
 let loadPromise: Promise<void> | null = null
+let pendingLoad: PendingLoad | null = null
+let pendingUpscale: PendingUpscale | null = null
 
-export function isModelLoaded() {
-  return session !== null
+function ensureWorker(): Worker {
+  if (worker) return worker
+
+  const base = import.meta.env.BASE_URL ?? '/'
+  worker = new Worker(`${base}upscaler.worker.js`)
+
+  worker.addEventListener('message', (e: MessageEvent<InMsg>) => {
+    const msg = e.data
+    if (msg.type === 'progress') {
+      pendingLoad?.progress?.(msg.pct)
+    } else if (msg.type === 'loaded') {
+      workerReady = true
+      pendingLoad?.resolve()
+      pendingLoad = null
+    } else if (msg.type === 'upscaled') {
+      const rgba = new Uint8ClampedArray(msg.rgba)
+      const out = document.createElement('canvas')
+      out.width = msg.width
+      out.height = msg.height
+      out.getContext('2d')!.putImageData(new ImageData(rgba, msg.width, msg.height), 0, 0)
+      pendingUpscale?.resolve(out)
+      pendingUpscale = null
+    } else if (msg.type === 'error') {
+      const err = new Error(msg.message)
+      if (pendingLoad) {
+        loadPromise = null   // allow retry
+        pendingLoad.reject(err)
+        pendingLoad = null
+      }
+      if (pendingUpscale) {
+        pendingUpscale.reject(err)
+        pendingUpscale = null
+      }
+    }
+  })
+
+  return worker
 }
 
-export async function loadModel(onProgress?: (pct: number) => void): Promise<void> {
-  if (session) return
+export function isModelLoaded() { return workerReady }
+
+export function loadModel(onProgress?: (pct: number) => void): Promise<void> {
+  if (workerReady) return Promise.resolve()
   if (loadPromise) return loadPromise
 
-  loadPromise = (async () => {
-    await window._ortReady
-
-    const res = await fetch(MODEL_URL)
-    if (!res.ok) throw new Error(`Failed to fetch model (${res.status})`)
-
-    const total = +(res.headers.get('content-length') ?? 0)
-    const reader = res.body!.getReader()
-    const chunks: Uint8Array[] = []
-    let received = 0
-
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      received += value.length
-      if (total > 0) onProgress?.(received / total)
-    }
-
-    const buf = new Uint8Array(received)
-    let off = 0
-    for (const c of chunks) { buf.set(c, off); off += c.length }
-
-    session = await ort.InferenceSession.create(buf.buffer, {
-      executionProviders: ['wasm'],
-    })
-    onProgress?.(1)
-  })()
+  loadPromise = new Promise<void>((resolve, reject) => {
+    pendingLoad = { resolve, reject, progress: onProgress }
+    ensureWorker().postMessage({ type: 'load' })
+  })
 
   return loadPromise
 }
 
-export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasElement> {
-  if (!session) throw new Error('Model not loaded')
+export function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasElement> {
+  if (!workerReady) return Promise.reject(new Error('Model not loaded'))
 
   const { width: W, height: H } = src
-  const srcCtx = src.getContext('2d')!
+  const imgData = src.getContext('2d')!.getImageData(0, 0, W, H)
 
-  console.log('[TERA Upscaler] inputNames:', session.inputNames)
-  console.log('[TERA Upscaler] outputNames:', session.outputNames)
-  console.log('[TERA Upscaler] image:', W, 'x', H)
-
-  const out = document.createElement('canvas')
-  const outCtx = out.getContext('2d')!
-  let scaleX = 4, scaleY = 4
-
-  const [inputName] = session.inputNames
-  const [outputName] = session.outputNames
-
-  for (let y = 0; y < H; y += TILE) {
-    for (let x = 0; x < W; x += TILE) {
-      const tw = Math.min(TILE, W - x)
-      const th = Math.min(TILE, H - y)
-      const tile = srcCtx.getImageData(x, y, tw, th)
-
-      // Dynamic axes: send tile as-is (no padding needed)
-      const result = await session.run({ [inputName]: toNCHW(tile) })
-
-      const outTensor = result[outputName] as any
-      const dims: number[] = outTensor.dims // [1, 3, H_out, W_out]
-      const outH = dims[2], outW = dims[3]
-
-      if (out.width === 0) {
-        scaleX = outW / tw
-        scaleY = outH / th
-        out.width = Math.round(W * scaleX)
-        out.height = Math.round(H * scaleY)
-        console.log('[TERA Upscaler] scale:', scaleX, 'x', scaleY, '→', out.width, 'x', out.height)
-      }
-
-      outCtx.putImageData(
-        toRGBA(result[outputName], outW, outH),
-        Math.round(x * scaleX), Math.round(y * scaleY),
-      )
-    }
-  }
-
-  return out
+  return new Promise<HTMLCanvasElement>((resolve, reject) => {
+    pendingUpscale = { resolve, reject }
+    ensureWorker().postMessage(
+      { type: 'upscale', rgba: imgData.data.buffer, width: W, height: H },
+      [imgData.data.buffer],
+    )
+  })
 }
-
-function toNCHW({ data, width, height }: ImageData): OrtTensor {
-  const n = width * height
-  const f = new Float32Array(3 * n)
-  for (let i = 0; i < n; i++) {
-    f[i]         = data[i * 4]     / 255
-    f[n + i]     = data[i * 4 + 1] / 255
-    f[n * 2 + i] = data[i * 4 + 2] / 255
-  }
-  return new ort.Tensor('float32', f, [1, 3, height, width])
-}
-
-function toRGBA(tensor: OrtTensor, width: number, height: number): ImageData {
-  const src = tensor.data
-  const n = width * height
-  const rgba = new Uint8ClampedArray(n * 4)
-  for (let i = 0; i < n; i++) {
-    rgba[i * 4]     = clamp(src[i])
-    rgba[i * 4 + 1] = clamp(src[n + i])
-    rgba[i * 4 + 2] = clamp(src[n * 2 + i])
-    rgba[i * 4 + 3] = 255
-  }
-  return new ImageData(rgba, width, height)
-}
-
-const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)))
