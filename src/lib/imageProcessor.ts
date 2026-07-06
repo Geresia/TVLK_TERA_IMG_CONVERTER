@@ -37,34 +37,7 @@ export async function processImage(file: File, enhance = false): Promise<Process
     sy = Math.round((sh - cropH) / 2)
   }
 
-  // Source for final draw: original image or AI-upscaled crop
-  let sourceEl: HTMLCanvasElement | HTMLImageElement = img
-  let srcX = sx, srcY = sy, srcW = cropW, srcH = cropH
-
-  if (enhance) {
-    const cropCanvas = document.createElement('canvas')
-    cropCanvas.width = cropW
-    cropCanvas.height = cropH
-    cropCanvas.getContext('2d')!.drawImage(img, sx, sy, cropW, cropH, 0, 0, cropW, cropH)
-
-    // Cap input to upscaler: model is 4x, so 512px → 2048px output (covers all TERA sizes)
-    // Prevents OOM on large source images
-    const MAX_IN = 512
-    let upscaleInput = cropCanvas
-    if (cropW > MAX_IN || cropH > MAX_IN) {
-      const s = Math.min(MAX_IN / cropW, MAX_IN / cropH)
-      const pre = document.createElement('canvas')
-      pre.width = Math.round(cropW * s)
-      pre.height = Math.round(cropH * s)
-      pre.getContext('2d')!.drawImage(cropCanvas, 0, 0, pre.width, pre.height)
-      upscaleInput = pre
-    }
-
-    const upscaled = await upscaleCanvas(upscaleInput)
-    sourceEl = upscaled
-    srcX = 0; srcY = 0; srcW = upscaled.width; srcH = upscaled.height
-  }
-
+  // Compute TERA output size
   let cw = cropW
   let ch = cropH
   const MIN_W = 800, MIN_H = 600, MAX_W = 4096, MAX_H = 4096
@@ -82,12 +55,29 @@ export async function processImage(file: File, enhance = false): Promise<Process
     cw = 1281; ch = Math.round(ch * s)
   }
 
+  // Draw crop to TERA canvas (same result as without enhance)
   const canvas = document.createElement('canvas')
   canvas.width = cw; canvas.height = ch
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(sourceEl, srcX, srcY, srcW, srcH, 0, 0, cw, ch)
+  ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
+
+  if (enhance) {
+    // Shrink TERA canvas to 1/4 size, AI upscale back to TERA size.
+    // Framing is identical to non-enhance; only pixel quality improves.
+    const inW = Math.max(64, Math.round(cw / 4))
+    const inH = Math.max(64, Math.round(ch / 4))
+    const small = document.createElement('canvas')
+    small.width = inW; small.height = inH
+    small.getContext('2d')!.drawImage(canvas, 0, 0, inW, inH)
+
+    const upscaled = await upscaleCanvas(small)
+
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(upscaled, 0, 0, cw, ch)
+  }
 
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.92),
