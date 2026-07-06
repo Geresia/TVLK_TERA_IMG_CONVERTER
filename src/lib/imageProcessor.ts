@@ -1,6 +1,3 @@
-import { upscaleCanvas } from './upscaler'
-import { upscaleViaAPI } from './upscaleAPI'
-
 const RATIOS = [1, 1.5, 1.7778] as const
 
 export interface ProcessResult {
@@ -11,17 +8,34 @@ export interface ProcessResult {
   baseName: string
 }
 
-export async function processImage(
-  file: File,
-  enhance = false,
-  options: {
-    apiKey?: string
-    onTile?: (done: number, total: number) => void
-    onStatus?: (msg: string) => void
-  } = {},
-): Promise<ProcessResult> {
-  const { apiKey, onTile, onStatus } = options
+function sharpen(canvas: HTMLCanvasElement, amount: number): void {
+  const { width: W, height: H } = canvas
+  const ctx = canvas.getContext('2d')!
 
+  const original = ctx.getImageData(0, 0, W, H)
+
+  // Blurred copy for USM: sharp = original + amount * (original - blurred)
+  const blurCanvas = document.createElement('canvas')
+  blurCanvas.width = W; blurCanvas.height = H
+  const bCtx = blurCanvas.getContext('2d')!
+  bCtx.filter = 'blur(1px)'
+  bCtx.drawImage(canvas, 0, 0)
+  const blurred = bCtx.getImageData(0, 0, W, H)
+
+  const out = new Uint8ClampedArray(original.data.length)
+  for (let i = 0; i < original.data.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      out[i + c] = Math.max(0, Math.min(255,
+        Math.round(original.data[i + c] + amount * (original.data[i + c] - blurred.data[i + c]))
+      ))
+    }
+    out[i + 3] = 255
+  }
+
+  ctx.putImageData(new ImageData(out, W, H), 0, 0)
+}
+
+export async function processImage(file: File, enhance = false): Promise<ProcessResult> {
   const url = URL.createObjectURL(file)
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
@@ -48,7 +62,6 @@ export async function processImage(
     sy = Math.round((sh - cropH) / 2)
   }
 
-  // Compute TERA output size
   let cw = cropW
   let ch = cropH
   const MIN_W = 800, MIN_H = 600, MAX_W = 4096, MAX_H = 4096
@@ -66,7 +79,6 @@ export async function processImage(
     cw = 1281; ch = Math.round(ch * s)
   }
 
-  // Draw crop to TERA canvas
   const canvas = document.createElement('canvas')
   canvas.width = cw; canvas.height = ch
   const ctx = canvas.getContext('2d')!
@@ -75,23 +87,7 @@ export async function processImage(
   ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
 
   if (enhance) {
-    // Shrink to 1/4, upscale 4x back to TERA size — same framing, better quality
-    const inW = Math.max(64, Math.round(cw / 4))
-    const inH = Math.max(64, Math.round(ch / 4))
-    const small = document.createElement('canvas')
-    small.width = inW; small.height = inH
-    small.getContext('2d')!.drawImage(canvas, 0, 0, inW, inH)
-
-    let upscaled: HTMLCanvasElement
-    if (apiKey) {
-      upscaled = await upscaleViaAPI(small, apiKey, onStatus)
-    } else {
-      upscaled = await upscaleCanvas(small, onTile)
-    }
-
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(upscaled, 0, 0, cw, ch)
+    sharpen(canvas, 2.0)
   }
 
   const blob = await new Promise<Blob>((resolve, reject) =>
