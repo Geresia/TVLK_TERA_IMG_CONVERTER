@@ -1,0 +1,80 @@
+name: Update Visitor Stats
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch GitHub traffic
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/Geresia/TVLK_TERA_IMG_CONVERTER/traffic/views > traffic.json
+          cat traffic.json
+
+      - name: Update README
+        run: |
+          python3 - <<'EOF'
+          import json, re
+          from datetime import datetime, timezone
+
+          with open('traffic.json') as f:
+              data = json.load(f)
+
+          rows = []
+          total_views = 0
+          total_uniques = 0
+
+          for v in data.get('views', []):
+              if v['count'] == 0:
+                  continue
+              date = v['timestamp'][:10]
+              rows.append(f"| {date} | {v['count']} | {v['uniques']} |")
+              total_views += v['count']
+              total_uniques = max(total_uniques, v['uniques'])
+
+          if not rows:
+              rows.append("| — | — | — |")
+
+          today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+          table = "\n".join([
+              "| Date | Views | Unique Visitors |",
+              "|------|-------|----------------|",
+              *rows,
+              f"| **Total** | **{data.get('count', total_views)}** | **{data.get('uniques', total_uniques)}** |",
+              "",
+              f"*Last updated: {today}*",
+          ])
+
+          with open('README.md') as f:
+              readme = f.read()
+
+          new_readme = re.sub(
+              r'<!-- STATS_START -->.*?<!-- STATS_END -->',
+              f'<!-- STATS_START -->\n{table}\n<!-- STATS_END -->',
+              readme,
+              flags=re.DOTALL,
+          )
+
+          with open('README.md', 'w') as f:
+              f.write(new_readme)
+
+          print("README updated.")
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --staged --quiet || git commit -m "Update visitor stats"
+          git push

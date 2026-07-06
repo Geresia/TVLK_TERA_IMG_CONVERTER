@@ -74,13 +74,15 @@ No model downloads. No external API calls. No latency.
 
 ## Visitor Stats
 
+<!-- STATS_START -->
 | Date | Views | Unique Visitors |
 |------|-------|----------------|
 | 2026-07-02 | 4 | 1 |
 | 2026-07-03 | 52 | 2 |
 | **Total** | **56** | **2** |
 
-*Tracked via Google Analytics GA4 · Data as of 2026-07-03*
+*Last updated: 2026-07-03*
+<!-- STATS_END -->
 
 
 ## Supported Formats
