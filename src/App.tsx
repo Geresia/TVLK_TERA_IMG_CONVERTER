@@ -152,7 +152,7 @@ export default function App() {
               ? `Downloading ${Math.round(modelPct * 100)}%`
               : modelState === 'error'
                 ? '⚠ Load Failed'
-                : `✦ 2x Upscale${upscale ? ' ON' : ''}`}
+                : `✦ 2x Upscale${upscale ? ' ON' : ''} `}
           </button>
 
           <button
