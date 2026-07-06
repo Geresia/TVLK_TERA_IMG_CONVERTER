@@ -13,10 +13,10 @@ Automatically crops and resizes images to match TERA's specifications.
 - **Drag & drop** or click to add images
 - **Paste image URL** to fetch and add directly
 - **Auto center-crop** to the nearest TERA-compliant ratio (`1:1` / `3:2` / `16:9`)
-- **Before / After preview** — click any converted file to compare original vs result
-- **2x Upscale** — AI upscaling via waifu2x ONNX (model file required, loaded on demand)
-- **Save** — downloads directly to your Downloads folder
-- **Save As** — choose any output folder
+- **Before / After preview** - click any converted file to compare original vs result
+- **2x Upscale** - AI upscaling via waifu2x ONNX (model file required, loaded on demand)
+- **Save** - downloads directly to your Downloads folder
+- **Save As** - choose any output folder
 - Batch processing support
 - JPEG 0.92 quality output
 
@@ -26,8 +26,8 @@ Automatically crops and resizes images to match TERA's specifications.
 |---|---|---|
 | Width | 1281 px | 4096 px |
 | Height | 600 px | 4096 px |
-| Ratio | 1:1 / 3:2 / 16:9 | — |
-| Format | JPEG 0.92 | — |
+| Ratio | 1:1 / 3:2 / 16:9 | - |
+| Format | JPEG 0.92 | - |
 
 ## Usage
 
