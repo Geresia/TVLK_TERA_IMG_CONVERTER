@@ -18,9 +18,9 @@ declare global {
   interface Window { _ortReady: Promise<typeof ort> }
 }
 
-const MODEL_URL = 'https://huggingface.co/tidus2102/Real-ESRGAN/resolve/main/Real-ESRGAN_x2plus.onnx'
+const MODEL_URL = 'https://huggingface.co/qualcomm/Real-ESRGAN-x4plus/resolve/main/Real-ESRGAN-x4plus.onnx'
 const TILE = 256
-const SCALE = 2
+const SCALE = 4
 
 let session: Awaited<ReturnType<typeof ort.InferenceSession.create>> | null = null
 let loadPromise: Promise<void> | null = null
@@ -75,10 +75,10 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
   console.log('[TERA Upscaler] outputNames:', session.outputNames)
   console.log('[TERA Upscaler] image:', W, 'x', H)
 
+  // Canvas size is set after first tile determines actual scale
   const out = document.createElement('canvas')
-  out.width = W * SCALE
-  out.height = H * SCALE
   const outCtx = out.getContext('2d')!
+  let canvasInitialized = false
 
   const [inputName] = session.inputNames
   const [outputName] = session.outputNames
@@ -92,6 +92,7 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
 
       // Try NCHW first, fall back to NHWC on INVALID_ARGUMENT
       let result: Record<string, OrtTensor>
+      let isNHWC = false
       try {
         console.log('[TERA Upscaler] trying NCHW [1,3,256,256]')
         result = await session.run({ [inputName]: toNCHW(padded) })
@@ -99,14 +100,35 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
         if (e?.message?.includes('ERROR_CODE: 2') || e?.message?.includes('INVALID_ARGUMENT')) {
           console.log('[TERA Upscaler] NCHW failed, trying NHWC [1,256,256,3]')
           result = await session.run({ [inputName]: toNHWC(padded) })
+          isNHWC = true
         } else {
           throw e
         }
       }
 
+      // Read actual output dims from tensor to handle any scale/format
+      const outTensor = result[outputName] as any
+      const dims: number[] = outTensor.dims
+      console.log('[TERA Upscaler] output dims:', dims, 'isNHWC:', isNHWC)
+
+      // dims: NCHW=[1,C,H,W] or NHWC=[1,H,W,C]
+      const actualH = isNHWC ? dims[1] : dims[2]
+      const actualW = isNHWC ? dims[2] : dims[3]
+      const scaleH = actualH / TILE
+      const scaleW = actualW / TILE
+
+      if (!canvasInitialized) {
+        out.width = Math.round(W * scaleW)
+        out.height = Math.round(H * scaleH)
+        canvasInitialized = true
+        console.log('[TERA Upscaler] output canvas:', out.width, 'x', out.height)
+      }
+
       outCtx.putImageData(
-        cropRGBA(result[outputName], tw * SCALE, th * SCALE, TILE * SCALE),
-        x * SCALE, y * SCALE,
+        isNHWC
+          ? cropRGBA_NHWC(result[outputName], Math.round(tw * scaleW), Math.round(th * scaleH), actualW)
+          : cropRGBA(result[outputName], Math.round(tw * scaleW), Math.round(th * scaleH), actualW),
+        Math.round(x * scaleW), Math.round(y * scaleH),
       )
     }
   }
@@ -146,6 +168,23 @@ function toNCHW({ data, width, height }: ImageData): OrtTensor {
     f[n * 2 + i] = data[i * 4 + 2] / 255
   }
   return new ort.Tensor('float32', f, [1, 3, height, width])
+}
+
+// Crop top-left outW×outH from a fullW-wide NHWC tensor
+function cropRGBA_NHWC(tensor: OrtTensor, outW: number, outH: number, fullW: number): ImageData {
+  const src = tensor.data
+  const rgba = new Uint8ClampedArray(outW * outH * 4)
+  for (let row = 0; row < outH; row++) {
+    for (let col = 0; col < outW; col++) {
+      const sp = (row * fullW + col) * 3
+      const dp = (row * outW + col) * 4
+      rgba[dp]     = clamp(src[sp])
+      rgba[dp + 1] = clamp(src[sp + 1])
+      rgba[dp + 2] = clamp(src[sp + 2])
+      rgba[dp + 3] = 255
+    }
+  }
+  return new ImageData(rgba, outW, outH)
 }
 
 // Crop top-left outW×outH from a fullW-wide NCHW tensor
