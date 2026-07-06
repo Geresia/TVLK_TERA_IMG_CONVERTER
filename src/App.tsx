@@ -129,7 +129,7 @@ export default function App() {
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed
               ${enhance ? 'bg-violet-500 text-white hover:bg-violet-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
           >
-            {`✦ Enhance${enhance ? ' ON' : ''}`}
+            {`2x Upscale${enhance ? ' ON' : ''}`}
           </button>
 
           <button
