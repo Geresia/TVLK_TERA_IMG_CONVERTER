@@ -10,6 +10,8 @@ import { loadModel, isModelLoaded } from './lib/upscaler'
 
 type ModelState = 'idle' | 'loading' | 'ready' | 'error'
 
+const LS_KEY = 'tera_replicate_key'
+
 export default function App() {
   const { items, pendingItems, addFiles, addFileArray, clearAll, updateItem } = useFileQueue()
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -20,10 +22,20 @@ export default function App() {
   const [modelPct, setModelPct] = useState(0)
   const [previewItem, setPreviewItem] = useState<FileItem | null>(null)
   const [tileInfo, setTileInfo] = useState<{ done: number; total: number } | null>(null)
+  const [apiStatus, setApiStatus] = useState('')
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem(LS_KEY) ?? '')
+  const [showKeyInput, setShowKeyInput] = useState(false)
   const isProcessing = useRef(false)
+
+  const saveKey = (k: string) => {
+    setApiKey(k)
+    localStorage.setItem(LS_KEY, k)
+  }
 
   const toggleUpscale = async () => {
     if (upscale) { setUpscale(false); return }
+    if (apiKey) { setUpscale(true); return }
+    // No API key → fall back to ONNX worker
     if (isModelLoaded()) { setUpscale(true); return }
     setModelState('loading')
     setModelPct(0)
@@ -64,17 +76,22 @@ export default function App() {
     for (const item of pendingItems) {
       updateItem(item.id, { status: 'processing' })
       setTileInfo(null)
+      setApiStatus('')
       try {
-        const onTile = upscale ? (done: number, total: number) => setTileInfo({ done, total }) : undefined
-        const result = await processImage(item.file, upscale, onTile)
+        const result = await processImage(item.file, upscale, {
+          apiKey: apiKey || undefined,
+          onTile: upscale && !apiKey ? (d, t) => setTileInfo({ done: d, total: t }) : undefined,
+          onStatus: upscale && apiKey ? (msg) => setApiStatus(msg) : undefined,
+        })
         setTileInfo(null)
+        setApiStatus('')
         await onResult(result.blob, result.baseName + '.jpg')
         updateItem(item.id, {
           status: 'ok',
           result: { width: result.width, height: result.height, ratio: result.ratio, blob: result.blob },
         })
       } catch (e: any) {
-        updateItem(item.id, { status: 'err', error: e.message?.slice(0, 40) ?? 'Error' })
+        updateItem(item.id, { status: 'err', error: e.message?.slice(0, 60) ?? 'Error' })
       }
       done++
       setProgress({ done, total: pendingItems.length })
@@ -100,6 +117,18 @@ export default function App() {
   const doneCount = items.filter(f => f.status === 'ok').length
   const errCount  = items.filter(f => f.status === 'err').length
   const busy = !!progress
+
+  const statusText = () => {
+    if (items.length === 0) return 'Add images to get started'
+    if (busy) {
+      if (apiStatus) return `${apiStatus} (${progress!.done}/${progress!.total})`
+      if (tileInfo) return `Converting... (${progress!.done}/${progress!.total}) · tile ${tileInfo.done}/${tileInfo.total}`
+      return `Converting... (${progress!.done}/${progress!.total})`
+    }
+    if (doneCount + errCount > 0)
+      return `Done ${doneCount}${errCount ? ` · Failed ${errCount}` : ''}  ·  click a file to preview`
+    return `${items.length} files · ${pendingItems.length} pending`
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-100">
@@ -135,29 +164,31 @@ export default function App() {
 
         {/* Toolbar */}
         <div className="flex items-center gap-2">
-          <span className="flex-1 text-xs text-slate-500">
-            {items.length === 0
-              ? 'Add images to get started'
-              : busy
-                ? `Converting... (${progress.done}/${progress.total})${tileInfo ? ` · tile ${tileInfo.done}/${tileInfo.total}` : ''}`
-                : doneCount + errCount > 0
-                  ? `Done ${doneCount}${errCount ? ` · Failed ${errCount}` : ''}  ·  click a file to preview`
-                  : `${items.length} files · ${pendingItems.length} pending`
-            }
-          </span>
+          <span className="flex-1 text-xs text-slate-500">{statusText()}</span>
 
-          <button
-            onClick={toggleUpscale}
-            disabled={busy}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed
-              ${upscale ? 'bg-violet-500 text-white hover:bg-violet-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-          >
-            {modelState === 'loading'
-              ? `Downloading ${Math.round(modelPct * 100)}%`
-              : modelState === 'error'
-                ? '⚠ Load Failed'
-                : `✦ 2x Upscale${upscale ? ' ON' : ''} `}
-          </button>
+          {/* 2x Upscale + API key */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleUpscale}
+              disabled={busy}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed
+                ${upscale ? 'bg-violet-500 text-white hover:bg-violet-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+            >
+              {modelState === 'loading'
+                ? `Downloading ${Math.round(modelPct * 100)}%`
+                : modelState === 'error'
+                  ? '⚠ Load Failed'
+                  : `✦ 2x Upscale${upscale ? ' ON' : ''}`}
+            </button>
+            <button
+              onClick={() => setShowKeyInput(v => !v)}
+              title={apiKey ? 'API key set' : 'Set Replicate API key'}
+              className={`px-2 py-1.5 text-xs rounded-lg transition-colors
+                ${apiKey ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}
+            >
+              🔑
+            </button>
+          </div>
 
           <button
             onClick={clearAll}
@@ -183,6 +214,25 @@ export default function App() {
             {busy ? 'Converting...' : 'Save'}
           </button>
         </div>
+
+        {/* API key input (toggleable) */}
+        {showKeyInput && (
+          <div className="flex gap-2 items-center">
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => saveKey(e.target.value)}
+              placeholder="Replicate API key (r8_...)"
+              className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            />
+            <button
+              onClick={() => setShowKeyInput(false)}
+              className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300"
+            >
+              Done
+            </button>
+          </div>
+        )}
 
         {progress && <ProgressBar done={progress.done} total={progress.total} />}
 

@@ -1,4 +1,5 @@
 import { upscaleCanvas } from './upscaler'
+import { upscaleViaAPI } from './upscaleAPI'
 
 const RATIOS = [1, 1.5, 1.7778] as const
 
@@ -13,8 +14,14 @@ export interface ProcessResult {
 export async function processImage(
   file: File,
   enhance = false,
-  onTile?: (done: number, total: number) => void,
+  options: {
+    apiKey?: string
+    onTile?: (done: number, total: number) => void
+    onStatus?: (msg: string) => void
+  } = {},
 ): Promise<ProcessResult> {
+  const { apiKey, onTile, onStatus } = options
+
   const url = URL.createObjectURL(file)
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
@@ -59,7 +66,7 @@ export async function processImage(
     cw = 1281; ch = Math.round(ch * s)
   }
 
-  // Draw crop to TERA canvas (same result as without enhance)
+  // Draw crop to TERA canvas
   const canvas = document.createElement('canvas')
   canvas.width = cw; canvas.height = ch
   const ctx = canvas.getContext('2d')!
@@ -68,15 +75,19 @@ export async function processImage(
   ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
 
   if (enhance) {
-    // Shrink TERA canvas to 1/4 size, AI upscale back to TERA size.
-    // Framing is identical to non-enhance; only pixel quality improves.
+    // Shrink to 1/4, upscale 4x back to TERA size — same framing, better quality
     const inW = Math.max(64, Math.round(cw / 4))
     const inH = Math.max(64, Math.round(ch / 4))
     const small = document.createElement('canvas')
     small.width = inW; small.height = inH
     small.getContext('2d')!.drawImage(canvas, 0, 0, inW, inH)
 
-    const upscaled = await upscaleCanvas(small, onTile)
+    let upscaled: HTMLCanvasElement
+    if (apiKey) {
+      upscaled = await upscaleViaAPI(small, apiKey, onStatus)
+    } else {
+      upscaled = await upscaleCanvas(small, onTile)
+    }
 
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
