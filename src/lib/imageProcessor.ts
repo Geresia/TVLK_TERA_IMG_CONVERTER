@@ -1,5 +1,3 @@
-import { upscaleCanvas } from './upscaler'
-
 const RATIOS = [1, 1.5, 1.7778] as const
 
 export interface ProcessResult {
@@ -10,7 +8,7 @@ export interface ProcessResult {
   baseName: string
 }
 
-export async function processImage(file: File, upscale = false): Promise<ProcessResult> {
+export async function processImage(file: File, enhance = false): Promise<ProcessResult> {
   const url = URL.createObjectURL(file)
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
@@ -20,20 +18,8 @@ export async function processImage(file: File, upscale = false): Promise<Process
   })
   URL.revokeObjectURL(url)
 
-  let sw = img.naturalWidth
-  let sh = img.naturalHeight
-
-  // Draw source to canvas, upscale if requested
-  let sourceCanvas = document.createElement('canvas')
-  sourceCanvas.width = sw
-  sourceCanvas.height = sh
-  sourceCanvas.getContext('2d')!.drawImage(img, 0, 0)
-
-  if (upscale) {
-    sourceCanvas = await upscaleCanvas(sourceCanvas)
-    sw = sourceCanvas.width
-    sh = sourceCanvas.height
-  }
+  const sw = img.naturalWidth
+  const sh = img.naturalHeight
   const curRatio = sw / sh
 
   const tgtRatio = RATIOS.reduce((a, b) =>
@@ -71,7 +57,9 @@ export async function processImage(file: File, upscale = false): Promise<Process
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(sourceCanvas, sx, sy, cropW, cropH, 0, 0, cw, ch)
+  ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
+
+  if (enhance) unsharpenMask(canvas, 1.2, 0.7)
 
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.92),
@@ -95,4 +83,30 @@ export function downloadBlob(blob: Blob, fileName: string) {
   a.download = fileName
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+// Unsharp mask: sharpened = original + amount * (original - blur(original, radius))
+function unsharpenMask(canvas: HTMLCanvasElement, blurRadius: number, amount: number): void {
+  const ctx = canvas.getContext('2d')!
+  const w = canvas.width
+  const h = canvas.height
+
+  const blurCanvas = document.createElement('canvas')
+  blurCanvas.width = w
+  blurCanvas.height = h
+  const blurCtx = blurCanvas.getContext('2d')!
+  blurCtx.filter = `blur(${blurRadius}px)`
+  blurCtx.drawImage(canvas, 0, 0)
+
+  const orig = ctx.getImageData(0, 0, w, h)
+  const blur = blurCtx.getImageData(0, 0, w, h)
+  const o = orig.data
+  const b = blur.data
+
+  for (let i = 0; i < o.length - 3; i += 4) {
+    o[i]   = Math.max(0, Math.min(255, o[i]   + amount * (o[i]   - b[i])))
+    o[i+1] = Math.max(0, Math.min(255, o[i+1] + amount * (o[i+1] - b[i+1])))
+    o[i+2] = Math.max(0, Math.min(255, o[i+2] + amount * (o[i+2] - b[i+2])))
+  }
+  ctx.putImageData(orig, 0, 0)
 }
