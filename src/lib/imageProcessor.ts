@@ -18,7 +18,7 @@ function sharpen(canvas: HTMLCanvasElement, amount: number): void {
   const blurCanvas = document.createElement('canvas')
   blurCanvas.width = W; blurCanvas.height = H
   const bCtx = blurCanvas.getContext('2d')!
-  bCtx.filter = 'blur(1px)'
+  bCtx.filter = 'blur(2px)'
   bCtx.drawImage(canvas, 0, 0)
   const blurred = bCtx.getImageData(0, 0, W, H)
 
@@ -87,7 +87,7 @@ export async function processImage(file: File, enhance = false): Promise<Process
   ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
 
   if (enhance) {
-    sharpen(canvas, 2.0)
+    sharpen(canvas, 3.0)
   }
 
   const blob = await new Promise<Blob>((resolve, reject) =>
