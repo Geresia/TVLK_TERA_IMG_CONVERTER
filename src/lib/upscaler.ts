@@ -18,9 +18,9 @@ declare global {
   interface Window { _ortReady: Promise<typeof ort> }
 }
 
-const MODEL_URL = 'https://huggingface.co/qualcomm/Real-ESRGAN-x4plus/resolve/main/Real-ESRGAN-x4plus.onnx'
+// SwinIR-M x4 GAN — browser-verified ONNX, dynamic input size, NCHW float32
+const MODEL_URL = 'https://huggingface.co/rocca/swin-ir-onnx/resolve/main/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN-dynamic.onnx'
 const TILE = 256
-const SCALE = 4
 
 let session: Awaited<ReturnType<typeof ort.InferenceSession.create>> | null = null
 let loadPromise: Promise<void> | null = null
@@ -75,10 +75,9 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
   console.log('[TERA Upscaler] outputNames:', session.outputNames)
   console.log('[TERA Upscaler] image:', W, 'x', H)
 
-  // Canvas size is set after first tile determines actual scale
   const out = document.createElement('canvas')
   const outCtx = out.getContext('2d')!
-  let canvasInitialized = false
+  let scaleX = 4, scaleY = 4
 
   const [inputName] = session.inputNames
   const [outputName] = session.outputNames
@@ -88,75 +87,30 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
       const tw = Math.min(TILE, W - x)
       const th = Math.min(TILE, H - y)
       const tile = srcCtx.getImageData(x, y, tw, th)
-      const padded = padToTile(tile)
 
-      // Try NCHW first, fall back to NHWC on INVALID_ARGUMENT
-      let result: Record<string, OrtTensor>
-      let isNHWC = false
-      try {
-        console.log('[TERA Upscaler] trying NCHW [1,3,256,256]')
-        result = await session.run({ [inputName]: toNCHW(padded) })
-      } catch (e: any) {
-        if (e?.message?.includes('ERROR_CODE: 2') || e?.message?.includes('INVALID_ARGUMENT')) {
-          console.log('[TERA Upscaler] NCHW failed, trying NHWC [1,256,256,3]')
-          result = await session.run({ [inputName]: toNHWC(padded) })
-          isNHWC = true
-        } else {
-          throw e
-        }
-      }
+      // Dynamic axes: send tile as-is (no padding needed)
+      const result = await session.run({ [inputName]: toNCHW(tile) })
 
-      // Read actual output dims from tensor to handle any scale/format
       const outTensor = result[outputName] as any
-      const dims: number[] = outTensor.dims
-      console.log('[TERA Upscaler] output dims:', dims, 'isNHWC:', isNHWC)
+      const dims: number[] = outTensor.dims // [1, 3, H_out, W_out]
+      const outH = dims[2], outW = dims[3]
 
-      // dims: NCHW=[1,C,H,W] or NHWC=[1,H,W,C]
-      const actualH = isNHWC ? dims[1] : dims[2]
-      const actualW = isNHWC ? dims[2] : dims[3]
-      const scaleH = actualH / TILE
-      const scaleW = actualW / TILE
-
-      if (!canvasInitialized) {
-        out.width = Math.round(W * scaleW)
-        out.height = Math.round(H * scaleH)
-        canvasInitialized = true
-        console.log('[TERA Upscaler] output canvas:', out.width, 'x', out.height)
+      if (out.width === 0) {
+        scaleX = outW / tw
+        scaleY = outH / th
+        out.width = Math.round(W * scaleX)
+        out.height = Math.round(H * scaleY)
+        console.log('[TERA Upscaler] scale:', scaleX, 'x', scaleY, '→', out.width, 'x', out.height)
       }
 
       outCtx.putImageData(
-        isNHWC
-          ? cropRGBA_NHWC(result[outputName], Math.round(tw * scaleW), Math.round(th * scaleH), actualW)
-          : cropRGBA(result[outputName], Math.round(tw * scaleW), Math.round(th * scaleH), actualW),
-        Math.round(x * scaleW), Math.round(y * scaleH),
+        toRGBA(result[outputName], outW, outH),
+        Math.round(x * scaleX), Math.round(y * scaleY),
       )
     }
   }
 
   return out
-}
-
-function padToTile(tile: ImageData): ImageData {
-  if (tile.width === TILE && tile.height === TILE) return tile
-  const padded = new ImageData(TILE, TILE)
-  for (let row = 0; row < tile.height; row++) {
-    padded.data.set(
-      tile.data.subarray(row * tile.width * 4, (row + 1) * tile.width * 4),
-      row * TILE * 4,
-    )
-  }
-  return padded
-}
-
-function toNHWC({ data, width, height }: ImageData): OrtTensor {
-  const n = width * height
-  const f = new Float32Array(n * 3)
-  for (let i = 0; i < n; i++) {
-    f[i * 3]     = data[i * 4]     / 255
-    f[i * 3 + 1] = data[i * 4 + 1] / 255
-    f[i * 3 + 2] = data[i * 4 + 2] / 255
-  }
-  return new ort.Tensor('float32', f, [1, height, width, 3])
 }
 
 function toNCHW({ data, width, height }: ImageData): OrtTensor {
@@ -170,39 +124,17 @@ function toNCHW({ data, width, height }: ImageData): OrtTensor {
   return new ort.Tensor('float32', f, [1, 3, height, width])
 }
 
-// Crop top-left outW×outH from a fullW-wide NHWC tensor
-function cropRGBA_NHWC(tensor: OrtTensor, outW: number, outH: number, fullW: number): ImageData {
+function toRGBA(tensor: OrtTensor, width: number, height: number): ImageData {
   const src = tensor.data
-  const rgba = new Uint8ClampedArray(outW * outH * 4)
-  for (let row = 0; row < outH; row++) {
-    for (let col = 0; col < outW; col++) {
-      const sp = (row * fullW + col) * 3
-      const dp = (row * outW + col) * 4
-      rgba[dp]     = clamp(src[sp])
-      rgba[dp + 1] = clamp(src[sp + 1])
-      rgba[dp + 2] = clamp(src[sp + 2])
-      rgba[dp + 3] = 255
-    }
+  const n = width * height
+  const rgba = new Uint8ClampedArray(n * 4)
+  for (let i = 0; i < n; i++) {
+    rgba[i * 4]     = clamp(src[i])
+    rgba[i * 4 + 1] = clamp(src[n + i])
+    rgba[i * 4 + 2] = clamp(src[n * 2 + i])
+    rgba[i * 4 + 3] = 255
   }
-  return new ImageData(rgba, outW, outH)
-}
-
-// Crop top-left outW×outH from a fullW-wide NCHW tensor
-function cropRGBA(tensor: OrtTensor, outW: number, outH: number, fullW: number): ImageData {
-  const src = tensor.data
-  const fullH = TILE * SCALE
-  const rgba = new Uint8ClampedArray(outW * outH * 4)
-  for (let row = 0; row < outH; row++) {
-    for (let col = 0; col < outW; col++) {
-      const sp = row * fullW + col
-      const dp = (row * outW + col) * 4
-      rgba[dp]     = clamp(src[sp])
-      rgba[dp + 1] = clamp(src[fullH * fullW + sp])
-      rgba[dp + 2] = clamp(src[2 * fullH * fullW + sp])
-      rgba[dp + 3] = 255
-    }
-  }
-  return new ImageData(rgba, outW, outH)
+  return new ImageData(rgba, width, height)
 }
 
 const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)))
