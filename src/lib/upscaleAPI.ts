@@ -1,57 +1,40 @@
-// Real-ESRGAN via Replicate API — runs on GPU server, fast
-const REPLICATE_API = 'https://api.replicate.com/v1/predictions'
-// nightmareai/real-esrgan x4
-const MODEL_VERSION = '42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b'
+// Super Resolution via DeepAI — CORS-enabled, synchronous response
+const DEEPAI_URL = 'https://api.deepai.org/api/torch-srgan'
 
 export async function upscaleViaAPI(
   src: HTMLCanvasElement,
   apiKey: string,
   onStatus?: (msg: string) => void,
 ): Promise<HTMLCanvasElement> {
-  const dataUri = src.toDataURL('image/jpeg', 0.9)
+  onStatus?.('Upscaling via DeepAI...')
 
-  onStatus?.('Sending to Replicate...')
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    src.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.9),
+  )
 
-  const createRes = await fetch(REPLICATE_API, {
+  const form = new FormData()
+  form.append('image', blob, 'image.jpg')
+
+  const res = await fetch(DEEPAI_URL, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      version: MODEL_VERSION,
-      input: { image: dataUri, scale: 4, face_enhance: false },
-    }),
+    headers: { 'api-key': apiKey },
+    body: form,
   })
 
-  if (!createRes.ok) {
-    const err = await createRes.json().catch(() => ({}))
-    throw new Error((err as any).detail ?? `Replicate error ${createRes.status}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).err ?? `DeepAI error ${res.status}`)
   }
 
-  let prediction = await createRes.json()
+  const data = await res.json()
+  const outputUrl: string = data.output_url
+  if (!outputUrl) throw new Error('No output URL from DeepAI')
 
-  while (
-    prediction.status !== 'succeeded' &&
-    prediction.status !== 'failed' &&
-    prediction.status !== 'canceled'
-  ) {
-    await new Promise(r => setTimeout(r, 1500))
-    const pollRes = await fetch(`${REPLICATE_API}/${prediction.id}`, {
-      headers: { 'Authorization': `Bearer ${apiKey}` },
-    })
-    prediction = await pollRes.json()
-    onStatus?.(`AI upscaling... (${prediction.status})`)
-  }
+  onStatus?.('Downloading result...')
 
-  if (prediction.status !== 'succeeded') {
-    throw new Error((prediction as any).error ?? 'Replicate prediction failed')
-  }
-
-  const outputUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
   const imgRes = await fetch(outputUrl)
-  const blob = await imgRes.blob()
-  const blobUrl = URL.createObjectURL(blob)
+  const imgBlob = await imgRes.blob()
+  const blobUrl = URL.createObjectURL(imgBlob)
 
   const img = new Image()
   await new Promise<void>((resolve, reject) => {

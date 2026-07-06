@@ -222,7 +222,7 @@ export default function App() {
               type="password"
               value={apiKey}
               onChange={e => saveKey(e.target.value)}
-              placeholder="Replicate API key (r8_...)"
+              placeholder="DeepAI API key"
               className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400"
             />
             <button
