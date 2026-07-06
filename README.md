@@ -14,7 +14,7 @@ Automatically crops and resizes images to match TERA's specifications.
 - **Paste image URL** to fetch and add directly
 - **Auto center-crop** to the nearest TERA-compliant ratio (`1:1` / `3:2` / `16:9`)
 - **Before / After preview** - click any converted file to compare original vs result
-- **2x Upscale** - AI upscaling via waifu2x ONNX (model file required, loaded on demand)
+- **2x Upscale** - canvas sharpening toggle (Unsharp Mask, instant, no model downloads)
 - **Save** - downloads directly to your Downloads folder
 - **Save As** - choose any output folder
 - Batch processing support
@@ -33,14 +33,15 @@ Automatically crops and resizes images to match TERA's specifications.
 
 1. Open the [app](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/) in **Chrome or Edge**
 2. Drag & drop images, or paste a URL into the input field
-3. Click **Save** (auto Downloads) or **Save As** (choose folder)
-4. Click any converted file to preview before vs after
+3. Toggle **2x Upscale** for sharpening (optional)
+4. Click **Save** (auto Downloads) or **Save As** (choose folder)
+5. Click any converted file to preview before vs after
 
 > Safari / Firefox do not support the File System Access API required for saving files.
 
-## 2x Upscale (Optional)
+## 2x Upscale
 
-Place a waifu2x-compatible ONNX model at `public/models/waifu2x.onnx`, then click **✦ 2x Upscale** to enable. The model loads on first use (~50–100 MB depending on model).
+Canvas-based Unsharp Mask sharpening — works entirely in the browser with no model downloads or external API calls. Applies two passes of USM (`blur(3px)` radius) for visible edge enhancement.
 
 ## Supported Formats
 
@@ -50,7 +51,6 @@ Place a waifu2x-compatible ONNX model at `public/models/waifu2x.onnx`, then clic
 
 - React 18 + TypeScript + Vite
 - Tailwind CSS v4
-- Canvas API (image processing)
-- ONNX Runtime Web via CDN (upscaling)
+- Canvas API (image processing + sharpening)
 - File System Access API (file saving)
 - GitHub Pages via `gh-pages` branch
