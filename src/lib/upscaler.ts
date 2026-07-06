@@ -71,6 +71,10 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
   const { width: W, height: H } = src
   const srcCtx = src.getContext('2d')!
 
+  console.log('[TERA Upscaler] inputNames:', session.inputNames)
+  console.log('[TERA Upscaler] outputNames:', session.outputNames)
+  console.log('[TERA Upscaler] image:', W, 'x', H)
+
   const out = document.createElement('canvas')
   out.width = W * SCALE
   out.height = H * SCALE
@@ -84,10 +88,22 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
       const tw = Math.min(TILE, W - x)
       const th = Math.min(TILE, H - y)
       const tile = srcCtx.getImageData(x, y, tw, th)
-      // Pad to TILE×TILE — models with fixed input size need exact dimensions
       const padded = padToTile(tile)
-      const result = await session.run({ [inputName]: toNCHW(padded) })
-      // Crop output back to actual tile size * SCALE
+
+      // Try NCHW first, fall back to NHWC on INVALID_ARGUMENT
+      let result: Record<string, OrtTensor>
+      try {
+        console.log('[TERA Upscaler] trying NCHW [1,3,256,256]')
+        result = await session.run({ [inputName]: toNCHW(padded) })
+      } catch (e: any) {
+        if (e?.message?.includes('ERROR_CODE: 2') || e?.message?.includes('INVALID_ARGUMENT')) {
+          console.log('[TERA Upscaler] NCHW failed, trying NHWC [1,256,256,3]')
+          result = await session.run({ [inputName]: toNHWC(padded) })
+        } else {
+          throw e
+        }
+      }
+
       outCtx.putImageData(
         cropRGBA(result[outputName], tw * SCALE, th * SCALE, TILE * SCALE),
         x * SCALE, y * SCALE,
@@ -108,6 +124,17 @@ function padToTile(tile: ImageData): ImageData {
     )
   }
   return padded
+}
+
+function toNHWC({ data, width, height }: ImageData): OrtTensor {
+  const n = width * height
+  const f = new Float32Array(n * 3)
+  for (let i = 0; i < n; i++) {
+    f[i * 3]     = data[i * 4]     / 255
+    f[i * 3 + 1] = data[i * 4 + 1] / 255
+    f[i * 3 + 2] = data[i * 4 + 2] / 255
+  }
+  return new ort.Tensor('float32', f, [1, height, width, 3])
 }
 
 function toNCHW({ data, width, height }: ImageData): OrtTensor {
