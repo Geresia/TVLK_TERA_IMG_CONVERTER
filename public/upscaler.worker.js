@@ -30,7 +30,10 @@ async function loadModel() {
   let off = 0
   for (const c of chunks) { buf.set(c, off); off += c.length }
 
-  session = await ort.InferenceSession.create(buf.buffer, { executionProviders: ['wasm'] })
+  // Try WebGPU first (GPU = 10-50x faster), fall back to WASM
+  session = await ort.InferenceSession.create(buf.buffer, {
+    executionProviders: ['webgpu', 'wasm'],
+  })
   self.postMessage({ type: 'loaded' })
 }
 
@@ -55,6 +58,9 @@ async function upscaleImage(srcBuf, srcW, srcH) {
   let scaleX = 4, scaleY = 4
   let outW = 0, outH = 0
   let outRgba = null
+
+  const totalTiles = Math.ceil(srcH / TILE) * Math.ceil(srcW / TILE)
+  let tilesDone = 0
 
   for (let y = 0; y < srcH; y += TILE) {
     for (let x = 0; x < srcW; x += TILE) {
@@ -96,6 +102,9 @@ async function upscaleImage(srcBuf, srcW, srcH) {
           outRgba[di+3] = 255
         }
       }
+
+      tilesDone++
+      self.postMessage({ type: 'tile', done: tilesDone, total: totalTiles })
     }
   }
 

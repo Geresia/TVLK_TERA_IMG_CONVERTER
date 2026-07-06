@@ -19,6 +19,7 @@ export default function App() {
   const [modelState, setModelState] = useState<ModelState>('idle')
   const [modelPct, setModelPct] = useState(0)
   const [previewItem, setPreviewItem] = useState<FileItem | null>(null)
+  const [tileInfo, setTileInfo] = useState<{ done: number; total: number } | null>(null)
   const isProcessing = useRef(false)
 
   const toggleUpscale = async () => {
@@ -62,8 +63,11 @@ export default function App() {
 
     for (const item of pendingItems) {
       updateItem(item.id, { status: 'processing' })
+      setTileInfo(null)
       try {
-        const result = await processImage(item.file, upscale)
+        const onTile = upscale ? (done: number, total: number) => setTileInfo({ done, total }) : undefined
+        const result = await processImage(item.file, upscale, onTile)
+        setTileInfo(null)
         await onResult(result.blob, result.baseName + '.jpg')
         updateItem(item.id, {
           status: 'ok',
@@ -135,7 +139,7 @@ export default function App() {
             {items.length === 0
               ? 'Add images to get started'
               : busy
-                ? `Converting... (${progress.done}/${progress.total})`
+                ? `Converting... (${progress.done}/${progress.total})${tileInfo ? ` · tile ${tileInfo.done}/${tileInfo.total}` : ''}`
                 : doneCount + errCount > 0
                   ? `Done ${doneCount}${errCount ? ` · Failed ${errCount}` : ''}  ·  click a file to preview`
                   : `${items.length} files · ${pendingItems.length} pending`

@@ -3,6 +3,7 @@
 type InMsg =
   | { type: 'progress'; pct: number }
   | { type: 'loaded' }
+  | { type: 'tile'; done: number; total: number }
   | { type: 'upscaled'; rgba: ArrayBuffer; width: number; height: number }
   | { type: 'error'; message: string }
 
@@ -15,6 +16,7 @@ type PendingLoad = {
 type PendingUpscale = {
   resolve: (c: HTMLCanvasElement) => void
   reject: (e: Error) => void
+  onTile?: (done: number, total: number) => void
 }
 
 let worker: Worker | null = null
@@ -37,6 +39,8 @@ function ensureWorker(): Worker {
       workerReady = true
       pendingLoad?.resolve()
       pendingLoad = null
+    } else if (msg.type === 'tile') {
+      pendingUpscale?.onTile?.(msg.done, msg.total)
     } else if (msg.type === 'upscaled') {
       const rgba = new Uint8ClampedArray(msg.rgba)
       const out = document.createElement('canvas')
@@ -76,14 +80,17 @@ export function loadModel(onProgress?: (pct: number) => void): Promise<void> {
   return loadPromise
 }
 
-export function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasElement> {
+export function upscaleCanvas(
+  src: HTMLCanvasElement,
+  onTile?: (done: number, total: number) => void,
+): Promise<HTMLCanvasElement> {
   if (!workerReady) return Promise.reject(new Error('Model not loaded'))
 
   const { width: W, height: H } = src
   const imgData = src.getContext('2d')!.getImageData(0, 0, W, H)
 
   return new Promise<HTMLCanvasElement>((resolve, reject) => {
-    pendingUpscale = { resolve, reject }
+    pendingUpscale = { resolve, reject, onTile }
     ensureWorker().postMessage(
       { type: 'upscale', rgba: imgData.data.buffer, width: W, height: H },
       [imgData.data.buffer],

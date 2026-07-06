@@ -10,7 +10,11 @@ export interface ProcessResult {
   baseName: string
 }
 
-export async function processImage(file: File, enhance = false): Promise<ProcessResult> {
+export async function processImage(
+  file: File,
+  enhance = false,
+  onTile?: (done: number, total: number) => void,
+): Promise<ProcessResult> {
   const url = URL.createObjectURL(file)
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
@@ -72,7 +76,7 @@ export async function processImage(file: File, enhance = false): Promise<Process
     small.width = inW; small.height = inH
     small.getContext('2d')!.drawImage(canvas, 0, 0, inW, inH)
 
-    const upscaled = await upscaleCanvas(small)
+    const upscaled = await upscaleCanvas(small, onTile)
 
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
