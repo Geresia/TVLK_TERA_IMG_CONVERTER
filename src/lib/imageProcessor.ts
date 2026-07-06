@@ -1,3 +1,5 @@
+import { upscaleCanvas } from './upscaler'
+
 const RATIOS = [1, 1.5, 1.7778] as const
 
 export interface ProcessResult {
@@ -35,6 +37,21 @@ export async function processImage(file: File, enhance = false): Promise<Process
     sy = Math.round((sh - cropH) / 2)
   }
 
+  // Source for final draw: original image or AI-upscaled crop
+  let sourceEl: HTMLCanvasElement | HTMLImageElement = img
+  let srcX = sx, srcY = sy, srcW = cropW, srcH = cropH
+
+  if (enhance) {
+    // Extract only the crop region, then upscale — avoids processing pixels we'll discard
+    const cropCanvas = document.createElement('canvas')
+    cropCanvas.width = cropW
+    cropCanvas.height = cropH
+    cropCanvas.getContext('2d')!.drawImage(img, sx, sy, cropW, cropH, 0, 0, cropW, cropH)
+    const upscaled = await upscaleCanvas(cropCanvas)
+    sourceEl = upscaled
+    srcX = 0; srcY = 0; srcW = upscaled.width; srcH = upscaled.height
+  }
+
   let cw = cropW
   let ch = cropH
   const MIN_W = 800, MIN_H = 600, MAX_W = 4096, MAX_H = 4096
@@ -57,9 +74,7 @@ export async function processImage(file: File, enhance = false): Promise<Process
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
-
-  if (enhance) unsharpenMask(canvas, 1.2, 0.7)
+  ctx.drawImage(sourceEl, srcX, srcY, srcW, srcH, 0, 0, cw, ch)
 
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.92),
@@ -83,30 +98,4 @@ export function downloadBlob(blob: Blob, fileName: string) {
   a.download = fileName
   a.click()
   URL.revokeObjectURL(a.href)
-}
-
-// Unsharp mask: sharpened = original + amount * (original - blur(original, radius))
-function unsharpenMask(canvas: HTMLCanvasElement, blurRadius: number, amount: number): void {
-  const ctx = canvas.getContext('2d')!
-  const w = canvas.width
-  const h = canvas.height
-
-  const blurCanvas = document.createElement('canvas')
-  blurCanvas.width = w
-  blurCanvas.height = h
-  const blurCtx = blurCanvas.getContext('2d')!
-  blurCtx.filter = `blur(${blurRadius}px)`
-  blurCtx.drawImage(canvas, 0, 0)
-
-  const orig = ctx.getImageData(0, 0, w, h)
-  const blur = blurCtx.getImageData(0, 0, w, h)
-  const o = orig.data
-  const b = blur.data
-
-  for (let i = 0; i < o.length - 3; i += 4) {
-    o[i]   = Math.max(0, Math.min(255, o[i]   + amount * (o[i]   - b[i])))
-    o[i+1] = Math.max(0, Math.min(255, o[i+1] + amount * (o[i+1] - b[i+1])))
-    o[i+2] = Math.max(0, Math.min(255, o[i+2] + amount * (o[i+2] - b[i+2])))
-  }
-  ctx.putImageData(orig, 0, 0)
 }

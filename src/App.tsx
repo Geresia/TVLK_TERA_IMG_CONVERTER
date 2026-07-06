@@ -6,6 +6,9 @@ import PreviewModal from './components/PreviewModal'
 import { useFileQueue } from './hooks/useFileQueue'
 import type { FileItem } from './hooks/useFileQueue'
 import { processImage, saveToDir, downloadBlob } from './lib/imageProcessor'
+import { loadModel, isModelLoaded } from './lib/upscaler'
+
+type ModelState = 'idle' | 'loading' | 'ready' | 'error'
 
 export default function App() {
   const { items, pendingItems, addFiles, addFileArray, clearAll, updateItem } = useFileQueue()
@@ -13,10 +16,24 @@ export default function App() {
   const [urlInput, setUrlInput] = useState('')
   const [urlError, setUrlError] = useState('')
   const [upscale, setUpscale] = useState(false)
+  const [modelState, setModelState] = useState<ModelState>('idle')
+  const [modelPct, setModelPct] = useState(0)
   const [previewItem, setPreviewItem] = useState<FileItem | null>(null)
   const isProcessing = useRef(false)
 
-  const toggleUpscale = () => setUpscale(prev => !prev)
+  const toggleUpscale = async () => {
+    if (upscale) { setUpscale(false); return }
+    if (isModelLoaded()) { setUpscale(true); return }
+    setModelState('loading')
+    setModelPct(0)
+    try {
+      await loadModel(p => setModelPct(p))
+      setModelState('ready')
+      setUpscale(true)
+    } catch {
+      setModelState('error')
+    }
+  }
 
   const fetchFromUrl = async () => {
     const raw = urlInput.trim()
@@ -131,7 +148,11 @@ export default function App() {
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed
               ${upscale ? 'bg-violet-500 text-white hover:bg-violet-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
           >
-            {`✦ Enhance${upscale ? ' ON' : ''}`}
+            {modelState === 'loading'
+              ? `Downloading ${Math.round(modelPct * 100)}%`
+              : modelState === 'error'
+                ? '⚠ Load Failed'
+                : `✦ 2x Upscale${upscale ? ' ON' : ''}`}
           </button>
 
           <button
