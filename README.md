@@ -12,7 +12,6 @@
 
 </div>
 
----
 
 ## Overview
 
@@ -25,7 +24,6 @@ TERA Image Converter is a browser-based tool that takes any hotel photo and auto
 
 No server. No installs. Runs entirely in your browser.
 
----
 
 ## Features
 
@@ -40,7 +38,6 @@ No server. No installs. Runs entirely in your browser.
 | **Save As** | Choose any output folder via the File System Access API |
 | **Batch Processing** | Convert dozens of images in one go |
 
----
 
 ## TERA Image Spec
 
@@ -51,7 +48,6 @@ No server. No installs. Runs entirely in your browser.
 | **Aspect Ratio** | 1:1 / 3:2 / 16:9 | — |
 | **Format** | JPEG 0.92 | — |
 
----
 
 ## How to Use
 
@@ -63,7 +59,6 @@ No server. No installs. Runs entirely in your browser.
 
 > **Note:** Safari and Firefox do not support the File System Access API — **Save As** will not work.
 
----
 
 ## 2x Upscale — How It Works
 
@@ -76,7 +71,6 @@ Pass 2 — fine detail:   output = clamp( src + 2.0 × (src − blur(3px)) )
 
 No model downloads. No external API calls. No latency.
 
----
 
 ## Visitor Stats
 
@@ -88,13 +82,11 @@ No model downloads. No external API calls. No latency.
 
 *Tracked via Google Analytics GA4 · Data as of 2026-07-03*
 
----
 
 ## Supported Formats
 
 `JPG` · `PNG` · `WEBP` · `BMP` · `GIF`
 
----
 
 ## Tech Stack
 
