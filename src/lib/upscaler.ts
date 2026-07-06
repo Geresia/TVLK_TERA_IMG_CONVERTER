@@ -84,12 +84,30 @@ export async function upscaleCanvas(src: HTMLCanvasElement): Promise<HTMLCanvasE
       const tw = Math.min(TILE, W - x)
       const th = Math.min(TILE, H - y)
       const tile = srcCtx.getImageData(x, y, tw, th)
-      const result = await session.run({ [inputName]: toNCHW(tile) })
-      outCtx.putImageData(toRGBA(result[outputName], tw * SCALE, th * SCALE), x * SCALE, y * SCALE)
+      // Pad to TILE×TILE — models with fixed input size need exact dimensions
+      const padded = padToTile(tile)
+      const result = await session.run({ [inputName]: toNCHW(padded) })
+      // Crop output back to actual tile size * SCALE
+      outCtx.putImageData(
+        cropRGBA(result[outputName], tw * SCALE, th * SCALE, TILE * SCALE),
+        x * SCALE, y * SCALE,
+      )
     }
   }
 
   return out
+}
+
+function padToTile(tile: ImageData): ImageData {
+  if (tile.width === TILE && tile.height === TILE) return tile
+  const padded = new ImageData(TILE, TILE)
+  for (let row = 0; row < tile.height; row++) {
+    padded.data.set(
+      tile.data.subarray(row * tile.width * 4, (row + 1) * tile.width * 4),
+      row * TILE * 4,
+    )
+  }
+  return padded
 }
 
 function toNCHW({ data, width, height }: ImageData): OrtTensor {
@@ -103,17 +121,22 @@ function toNCHW({ data, width, height }: ImageData): OrtTensor {
   return new ort.Tensor('float32', f, [1, 3, height, width])
 }
 
-function toRGBA(tensor: OrtTensor, width: number, height: number): ImageData {
+// Crop top-left outW×outH from a fullW-wide NCHW tensor
+function cropRGBA(tensor: OrtTensor, outW: number, outH: number, fullW: number): ImageData {
   const src = tensor.data
-  const n = width * height
-  const rgba = new Uint8ClampedArray(n * 4)
-  for (let i = 0; i < n; i++) {
-    rgba[i * 4]     = clamp(src[i])
-    rgba[i * 4 + 1] = clamp(src[n + i])
-    rgba[i * 4 + 2] = clamp(src[n * 2 + i])
-    rgba[i * 4 + 3] = 255
+  const fullH = TILE * SCALE
+  const rgba = new Uint8ClampedArray(outW * outH * 4)
+  for (let row = 0; row < outH; row++) {
+    for (let col = 0; col < outW; col++) {
+      const sp = row * fullW + col
+      const dp = (row * outW + col) * 4
+      rgba[dp]     = clamp(src[sp])
+      rgba[dp + 1] = clamp(src[fullH * fullW + sp])
+      rgba[dp + 2] = clamp(src[2 * fullH * fullW + sp])
+      rgba[dp + 3] = 255
+    }
   }
-  return new ImageData(rgba, width, height)
+  return new ImageData(rgba, outW, outH)
 }
 
 const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)))
