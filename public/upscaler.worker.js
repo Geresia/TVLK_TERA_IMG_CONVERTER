@@ -4,7 +4,8 @@ importScripts('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.
 
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/'
 
-const MODEL_URL = 'https://huggingface.co/rocca/swin-ir-onnx/resolve/main/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.onnx'
+// realesr-general-x4v3: 4.87MB CNN-based (12x smaller than SwinIR, no attention)
+const MODEL_URL = 'https://huggingface.co/Heliosoph/realesrgan-onnx/resolve/main/realesr-general-x4v3.onnx'
 const TILE = 128
 
 let session = null
