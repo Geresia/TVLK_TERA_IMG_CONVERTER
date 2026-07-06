@@ -20,7 +20,7 @@ declare global {
 
 // SwinIR-M x4 GAN — browser-verified ONNX, dynamic input size, NCHW float32
 const MODEL_URL = 'https://huggingface.co/rocca/swin-ir-onnx/resolve/main/003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.onnx'
-const TILE = 256
+const TILE = 128
 
 let session: Awaited<ReturnType<typeof ort.InferenceSession.create>> | null = null
 let loadPromise: Promise<void> | null = null

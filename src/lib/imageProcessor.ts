@@ -42,12 +42,25 @@ export async function processImage(file: File, enhance = false): Promise<Process
   let srcX = sx, srcY = sy, srcW = cropW, srcH = cropH
 
   if (enhance) {
-    // Extract only the crop region, then upscale — avoids processing pixels we'll discard
     const cropCanvas = document.createElement('canvas')
     cropCanvas.width = cropW
     cropCanvas.height = cropH
     cropCanvas.getContext('2d')!.drawImage(img, sx, sy, cropW, cropH, 0, 0, cropW, cropH)
-    const upscaled = await upscaleCanvas(cropCanvas)
+
+    // Cap input to upscaler: model is 4x, so 512px → 2048px output (covers all TERA sizes)
+    // Prevents OOM on large source images
+    const MAX_IN = 512
+    let upscaleInput = cropCanvas
+    if (cropW > MAX_IN || cropH > MAX_IN) {
+      const s = Math.min(MAX_IN / cropW, MAX_IN / cropH)
+      const pre = document.createElement('canvas')
+      pre.width = Math.round(cropW * s)
+      pre.height = Math.round(cropH * s)
+      pre.getContext('2d')!.drawImage(cropCanvas, 0, 0, pre.width, pre.height)
+      upscaleInput = pre
+    }
+
+    const upscaled = await upscaleCanvas(upscaleInput)
     sourceEl = upscaled
     srcX = 0; srcY = 0; srcW = upscaled.width; srcH = upscaled.height
   }
