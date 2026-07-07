@@ -20,7 +20,7 @@ jobs:
       - name: Fetch GA4 stats and update README
         env:
           GA4_CREDENTIALS: ${{ secrets.GA4_CREDENTIALS }}
-          GA4_PROPERTY_ID: "15206738509"
+          GA4_PROPERTY_ID: "15211741296"
         run: |
           python3 - <<'EOF'
           import os, json, re
