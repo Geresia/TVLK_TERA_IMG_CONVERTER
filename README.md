@@ -77,8 +77,8 @@ No model downloads. No external API calls. No latency.
 <!-- STATS_START -->
 | Date | Views | Unique Visitors |
 |------|-------|----------------|
-| — | — | — |
-| **Total** | **0** | **0** |
+| 2026-07-07 | 1 | 1 |
+| **Total** | **1** | **1** |
 
 *Last updated: 2026-07-07*
 <!-- STATS_END -->
