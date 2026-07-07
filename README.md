@@ -15,23 +15,23 @@
 
 ## Overview
 
-TERA Image Converter is a **browser-based** tool built for Traveloka hotel image workflows. Drop in any photo and it automatically handles cropping, resizing, and sharpening — outputting a TERA-ready JPEG in under a second.
+TERA Image Converter is a **browser-based** tool built for Traveloka hotel image workflows. Drop in any photo and it automatically handles cropping, resizing, and sharpening, outputting a TERA-ready JPEG in under a second.
 
 > No server. No installs. No uploads. Runs entirely in your browser.
 
 
 ## Features
 
-| | Feature | Description |
-|---|---------|-------------|
-| 🖼️ | **Drag & Drop** | Drop images directly onto the app |
-| 🔗 | **URL Import** | Paste any image URL to fetch and convert instantly |
-| ✂️ | **Auto Center Crop** | Snaps to the nearest TERA ratio — `1:1` · `3:2` · `16:9` |
-| 🔍 | **Before / After Preview** | Click any file to compare original vs converted |
-| ✨ | **2x Upscale** | Two-pass canvas USM sharpening, instant and offline |
-| 💾 | **Save** | One-click download to your Downloads folder |
-| 📁 | **Save As** | Pick any output folder via File System Access API |
-| ⚡ | **Batch Processing** | Convert dozens of images in one go |
+| Feature | Description |
+|---------|-------------|
+| **Drag & Drop** | Drop images directly onto the app |
+| **URL Import** | Paste any image URL to fetch and convert instantly |
+| **Auto Center Crop** | Snaps to the nearest TERA ratio: `1:1` `3:2` `16:9` |
+| **Before / After Preview** | Click any file to compare original vs converted |
+| **2x Upscale** | Two-pass canvas USM sharpening, instant and offline |
+| **Save** | One-click download to your Downloads folder |
+| **Save As** | Pick any output folder via File System Access API |
+| **Batch Processing** | Convert dozens of images in one go |
 
 
 ## TERA Image Spec
@@ -48,13 +48,13 @@ TERA Image Converter is a **browser-based** tool built for Traveloka hotel image
 
 ```
 1. Open in Chrome or Edge
-2. Drag & drop images — or paste a URL and press Enter
+2. Drag & drop images, or paste a URL and press Enter
 3. Toggle [2x Upscale] for edge sharpening (optional)
 4. Click [Save] to download  /  [Save As] to pick a folder
 5. Click any file to preview before vs after
 ```
 
-> ⚠️ **Safari / Firefox** — File System Access API not supported. **Save As** unavailable.
+> **Safari / Firefox**: File System Access API not supported. **Save As** unavailable.
 
 
 ## 2x Upscale
