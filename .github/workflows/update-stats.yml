@@ -17,7 +17,7 @@ jobs:
       - name: Install GA4 client
         run: pip install google-analytics-data
 
-      - name: Fetch GA4 stats and update README
+      - name: Fetch GA4 stats and update README + badge JSON
         env:
           GA4_CREDENTIALS: ${{ secrets.GA4_CREDENTIALS }}
           GA4_PROPERTY_ID: "544443286"
@@ -55,7 +55,7 @@ jobs:
           total_users = 0
 
           for row in response.rows:
-              raw_date = row.dimension_values[0].value  # YYYYMMDD
+              raw_date = row.dimension_values[0].value
               date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
               views = int(row.metric_values[0].value)
               users = int(row.metric_values[1].value)
@@ -69,6 +69,17 @@ jobs:
               rows.append("| — | — | — |")
 
           today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+          # Write badge JSON for shields.io dynamic badge
+          os.makedirs('docs', exist_ok=True)
+          with open('docs/ga4-stats.json', 'w') as f:
+              json.dump({
+                  "total_views": total_views,
+                  "total_users": total_users,
+                  "updated": today,
+              }, f)
+
+          # Update README table
           table = "\n".join([
               "| Date | Views | Unique Visitors |",
               "|------|-------|----------------|",
@@ -91,13 +102,13 @@ jobs:
           with open('README.md', 'w') as f:
               f.write(new_readme)
 
-          print("README updated with GA4 data.")
+          print(f"Done. total_views={total_views}, total_users={total_users}")
           EOF
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
+          git add README.md docs/ga4-stats.json
           git diff --staged --quiet || git commit -m "Update visitor stats from GA4"
           git push

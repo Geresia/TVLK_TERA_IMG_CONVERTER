@@ -5,7 +5,7 @@
 **Automatically crop & resize hotel images to Traveloka TERA specifications - in seconds.**
 
 [![Live App](https://img.shields.io/badge/▶%20Launch%20App-0EA5E9?style=for-the-badge&logoColor=white)](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)
-[![Visitors](https://hits.sh/geresia.github.io/TVLK_TERA_IMG_CONVERTER.svg?style=for-the-badge&label=visitors&color=0ea5e9&labelColor=334155)](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)
+[![Visitors](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FGeresia%2FTVLK_TERA_IMG_CONVERTER%2Fmain%2Fdocs%2Fga4-stats.json&query=%24.total_users&label=visitors&style=for-the-badge&color=0ea5e9&labelColor=334155)](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)
 [![Last Commit](https://img.shields.io/github/last-commit/Geresia/TVLK_TERA_IMG_CONVERTER?style=for-the-badge&color=334155)](https://github.com/Geresia/TVLK_TERA_IMG_CONVERTER/commits/main)
 
 ![Preview](docs/preview.svg)
