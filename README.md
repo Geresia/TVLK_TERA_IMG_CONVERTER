@@ -2,7 +2,7 @@
 
 # TERA Image Converter
 
-**Automatically crop & resize hotel images to Traveloka TERA specifications - in seconds.**
+**Hotel images, TERA-ready in seconds.**
 
 [![Live App](https://img.shields.io/badge/▶%20Launch%20App-0EA5E9?style=for-the-badge&logoColor=white)](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)
 [![Visitors](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FGeresia%2FTVLK_TERA_IMG_CONVERTER%2Fmain%2Fdocs%2Fga4-stats.json&query=%24.total_users&label=visitors&style=for-the-badge&color=0ea5e9&labelColor=334155)](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)
@@ -15,9 +15,9 @@
 
 ## Overview
 
-TERA Image Converter is a **browser-based** tool built for Traveloka hotel image workflows. Drop in any photo and it automatically handles cropping, resizing, and sharpening, outputting a TERA-ready JPEG in under a second.
+Upload a hotel photo, get a TERA-compliant JPEG out. Handles cropping, resizing, and optional sharpening automatically. No setup, no server, just open and use.
 
-> No server. No installs. No uploads. Runs entirely in your browser.
+> Works in Chrome and Edge. Everything runs in your browser.
 
 
 ## Features
@@ -54,21 +54,21 @@ TERA Image Converter is a **browser-based** tool built for Traveloka hotel image
 5. Click any file to preview before vs after
 ```
 
-> **Safari / Firefox**: File System Access API not supported. **Save As** unavailable.
+> **Safari / Firefox** doesn't support folder saving. Use Chrome or Edge for **Save As**.
 
 
 ## 2x Upscale
 
-Two sequential passes of canvas-based **Unsharp Mask (USM)** sharpening:
+Canvas-based **Unsharp Mask (USM)** run twice — first pass catches broad edges, second pass recovers fine detail.
 
 ```
-Pass 1  blur(3px) · amount 3.0  →  broad edge enhancement
-Pass 2  blur(3px) · amount 2.0  →  fine detail recovery
+Pass 1  blur(3px) · amount 3.0
+Pass 2  blur(3px) · amount 2.0
 
-formula:  output = clamp( src + amount × (src − blur(src)) )
+output = clamp( src + amount × (src − blur(src)) )
 ```
 
-No model downloads. No external API calls. No added latency.
+Runs instantly in the browser, no external calls.
 
 
 ## Visitor Stats
