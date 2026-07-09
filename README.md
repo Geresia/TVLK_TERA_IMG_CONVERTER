@@ -5,7 +5,6 @@
 **Crop and resize hotel photos to Traveloka TERA specs**
 
 [![Live App](https://img.shields.io/badge/▶%20Launch%20App-0EA5E9?style=for-the-badge&logoColor=white)](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)
-[![Visitors](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FGeresia%2FTVLK_TERA_IMG_CONVERTER%2Fmain%2Fdocs%2Fga4-stats.json&query=%24.total_users&label=visitors&style=for-the-badge&color=0ea5e9&labelColor=334155)](https://geresia.github.io/TVLK_TERA_IMG_CONVERTER/)
 [![Last Commit](https://img.shields.io/github/last-commit/Geresia/TVLK_TERA_IMG_CONVERTER?style=for-the-badge&color=334155)](https://github.com/Geresia/TVLK_TERA_IMG_CONVERTER/commits/main)
 
 ![Preview](docs/preview.svg)
@@ -69,18 +68,6 @@ output = clamp( src + amount × (src − blur(src)) )
 No external calls, works offline.
 
 
-## Visitor Stats
-
-<!-- STATS_START -->
-| Date | Views | Unique Visitors |
-|------|-------|----------------|
-| 2026-07-07 | 3 | 1 |
-| 2026-07-08 | 11 | 1 |
-| **Total** | **14** | **1** |
-
-*Last updated: 2026-07-09*
-<!-- STATS_END -->
-
 
 ## Supported Formats
 
@@ -97,4 +84,3 @@ No external calls, works offline.
 
 - **Canvas API** - image processing & USM sharpening
 - **File System Access API** - folder-level file saving
-- **Google Analytics GA4** - visitor tracking
