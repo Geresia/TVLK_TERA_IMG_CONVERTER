@@ -84,9 +84,9 @@ export default function App() {
       <header className="flex items-center gap-3 px-5 py-3.5 bg-blue-500 text-white shadow">
         <h1 className="text-sm font-semibold tracking-wide">TERA Image Converter</h1>
         <img
-          src="https://cdn.brandfetch.io/domain/traveloka.com/fallback/lettermark/theme/dark/h/400/w/400/icon?c=1bfwsmEH20zzEfSNTed"
+          src="/TVLK_TERA_IMG_CONVERTER/traveloka-logo.png"
           alt="Traveloka"
-          className="ml-auto h-7 w-7 object-contain"
+          className="ml-auto h-8 object-contain"
         />
       </header>
 
