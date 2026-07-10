@@ -20,6 +20,8 @@ export interface FileItem {
   status: FileStatus
   result: FileResult | null
   error: string | null
+  customName: string | null
+  fitMode: boolean
 }
 
 export function useFileQueue() {
@@ -42,6 +44,8 @@ export function useFileQueue() {
           status: 'pending',
           result: null,
           error: null,
+          customName: null,
+          fitMode: false,
         }))
       return [...prev, ...newItems]
     })
@@ -60,6 +64,8 @@ export function useFileQueue() {
           status: 'pending',
           result: null,
           error: null,
+          customName: null,
+          fitMode: false,
         }))
       return [...prev, ...newItems]
     })

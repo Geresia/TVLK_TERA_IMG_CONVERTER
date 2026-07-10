@@ -6,6 +6,7 @@ export interface ProcessResult {
   ratio: '1:1' | '3:2' | '16:9'
   blob: Blob
   baseName: string
+  ext: 'jpg' | 'png'
 }
 
 function sharpen(canvas: HTMLCanvasElement, amount: number): void {
@@ -29,13 +30,13 @@ function sharpen(canvas: HTMLCanvasElement, amount: number): void {
         Math.round(original.data[i + c] + amount * (original.data[i + c] - blurred.data[i + c]))
       ))
     }
-    out[i + 3] = 255
+    out[i + 3] = original.data[i + 3]
   }
 
   ctx.putImageData(new ImageData(out, W, H), 0, 0)
 }
 
-export async function processImage(file: File, enhance = false): Promise<ProcessResult> {
+export async function processImage(file: File, enhance = false, fit = false): Promise<ProcessResult> {
   const url = URL.createObjectURL(file)
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
@@ -84,19 +85,30 @@ export async function processImage(file: File, enhance = false): Promise<Process
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
+
+  if (fit) {
+    const scale = Math.min(cw / sw, ch / sh)
+    const dw = Math.round(sw * scale)
+    const dh = Math.round(sh * scale)
+    const dx = Math.round((cw - dw) / 2)
+    const dy = Math.round((ch - dh) / 2)
+    ctx.drawImage(img, 0, 0, sw, sh, dx, dy, dw, dh)
+  } else {
+    ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, cw, ch)
+  }
 
   if (enhance) {
     sharpen(canvas, 1.5)
   }
 
+  const mimeType = fit ? 'image/png' : 'image/jpeg'
   const blob = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.92),
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), mimeType, fit ? undefined : 0.92),
   )
 
   const baseName = file.name.replace(/\.[^.]+$/, '')
   const ratio = tgtRatio === 1 ? '1:1' : tgtRatio === 1.5 ? '3:2' : '16:9'
-  return { width: cw, height: ch, ratio, blob, baseName }
+  return { width: cw, height: ch, ratio, blob, baseName, ext: fit ? 'png' : 'jpg' }
 }
 
 export async function saveToDir(blob: Blob, fileName: string, dirHandle: FileSystemDirectoryHandle) {

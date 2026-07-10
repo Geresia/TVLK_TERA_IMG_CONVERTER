@@ -44,8 +44,9 @@ export default function App() {
     for (const item of pendingItems) {
       updateItem(item.id, { status: 'processing' })
       try {
-        const result = await processImage(item.file, enhance)
-        await onResult(result.blob, result.baseName + '.jpg')
+        const result = await processImage(item.file, enhance, item.fitMode)
+        const outName = (item.customName ?? result.baseName) + '.' + result.ext
+        await onResult(result.blob, outName)
         updateItem(item.id, {
           status: 'ok',
           result: { width: result.width, height: result.height, ratio: result.ratio, blob: result.blob },
@@ -82,6 +83,11 @@ export default function App() {
     <div className="flex flex-col h-screen bg-slate-100">
       <header className="flex items-center gap-3 px-5 py-3.5 bg-blue-500 text-white shadow">
         <h1 className="text-sm font-semibold tracking-wide">TERA Image Converter</h1>
+        <img
+          src="https://cdn.brandfetch.io/domain/traveloka.com/fallback/lettermark/theme/dark/h/400/w/400/icon?c=1bfwsmEH20zzEfSNTed"
+          alt="Traveloka"
+          className="ml-auto h-7 w-7 object-contain"
+        />
       </header>
 
       <main className="flex flex-col flex-1 gap-3 p-4 overflow-hidden max-w-4xl w-full mx-auto">
@@ -159,7 +165,12 @@ export default function App() {
 
         {progress && <ProgressBar done={progress.done} total={progress.total} />}
 
-        <FileList items={items} onPreview={setPreviewItem} />
+        <FileList
+          items={items}
+          onPreview={setPreviewItem}
+          onRename={(id, name) => updateItem(id, { customName: name })}
+          onToggleFit={id => updateItem(id, { fitMode: !items.find(i => i.id === id)?.fitMode })}
+        />
       </main>
 
       {previewItem && (
