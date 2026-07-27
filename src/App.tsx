@@ -3,6 +3,7 @@ import DropZone from './components/DropZone'
 import FileList from './components/FileList'
 import ProgressBar from './components/ProgressBar'
 import PreviewModal from './components/PreviewModal'
+import InstallModal from './components/InstallModal'
 import { useFileQueue } from './hooks/useFileQueue'
 import type { FileItem } from './hooks/useFileQueue'
 import { processImage, saveToDir, downloadBlob } from './lib/imageProcessor'
@@ -14,6 +15,7 @@ export default function App() {
   const [urlError, setUrlError] = useState('')
   const [enhance, setEnhance] = useState(false)
   const [previewItem, setPreviewItem] = useState<FileItem | null>(null)
+  const [showInstall, setShowInstall] = useState(false)
   const isProcessing = useRef(false)
 
   const fetchFromUrl = async () => {
@@ -83,10 +85,16 @@ export default function App() {
     <div className="flex flex-col h-screen bg-slate-100">
       <header className="flex items-center gap-3 px-5 py-3.5 bg-blue-500 text-white shadow">
         <h1 className="text-sm font-semibold tracking-wide">TERA Image Converter</h1>
+        <button
+          onClick={() => setShowInstall(true)}
+          className="ml-auto px-3 py-1.5 text-xs font-medium rounded-lg bg-white/15 text-white hover:bg-white/25 transition-colors"
+        >
+          Get Tera Assistant
+        </button>
         <img
           src="/TVLK_TERA_IMG_CONVERTER/traveloka-logo.png"
           alt="Traveloka"
-          className="ml-auto h-8 object-contain"
+          className="h-8 object-contain"
         />
       </header>
 
@@ -175,6 +183,10 @@ export default function App() {
 
       {previewItem && (
         <PreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+      )}
+
+      {showInstall && (
+        <InstallModal onClose={() => setShowInstall(false)} />
       )}
     </div>
   )
